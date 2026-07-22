@@ -230,6 +230,12 @@ closed) for the broadcast tab to keep receiving updates.
 - **Flight number parsing**: accepts IATA (`AA123`), ICAO (`AAL210`), and
   spaced (`AA 123`) formats, including airlines with alphanumeric IATA codes
   (`B6512`, `F9400`).
+- **Multi-flight entry**: the Add Flight box accepts several flight numbers
+  in one go, separated by commas, semicolons, or plain spaces (e.g.
+  `DAL5111, AA 123 UAL1234`), all applied to the same flight date. Each is
+  added independently — if one is invalid or a duplicate, the rest still
+  succeed, and only the failed entries (with per-flight error messages) are
+  left in the box for correction.
 - **Duplicate detection**: adding the same flight number + date twice
   highlights the existing card instead of creating a second one.
 - **Auto-refresh**: Off / 15 min / 30 min / 1 hr, chosen deliberately short
