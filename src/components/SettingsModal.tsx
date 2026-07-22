@@ -5,6 +5,8 @@ import type { ProviderManager } from '../providers/ProviderManager';
 import { ProviderOrderList } from './ProviderOrderList';
 import { estimateSessionDuration } from '../services/requestEstimate';
 import { formatDurationMinutes } from '../utils/dateTimeUtils';
+import { isNotificationSupported, requestNotificationPermission } from '../services/notificationService';
+import { BellIcon } from './icons/BellIcon';
 
 // Used only if the browser doesn't support Intl.supportedValuesOf('timeZone').
 const FALLBACK_TIMEZONES = [
@@ -42,6 +44,7 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onClose, providerManager, activeFlightCount, onRestartSession }: SettingsModalProps) {
   const { settings, updateSettings } = useSettings();
   const [aviationStackKey, setAviationStackKey] = useState(settings.credentials.aviationStackApiKey);
+  const [notificationStatusMessage, setNotificationStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -67,6 +70,31 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
   }, []);
 
   if (!open) return null;
+
+  async function handleNotificationsToggle(e: React.ChangeEvent<HTMLInputElement>) {
+    const wantsEnabled = e.target.checked;
+    if (!wantsEnabled) {
+      updateSettings({ notificationsEnabled: false });
+      setNotificationStatusMessage(null);
+      return;
+    }
+    if (!isNotificationSupported()) {
+      setNotificationStatusMessage('This browser does not support notifications.');
+      return;
+    }
+    const permission = await requestNotificationPermission();
+    if (permission === 'granted') {
+      updateSettings({ notificationsEnabled: true });
+      setNotificationStatusMessage(null);
+    } else {
+      updateSettings({ notificationsEnabled: false });
+      setNotificationStatusMessage(
+        permission === 'denied'
+          ? "Notifications blocked — enable them in your browser's site settings to use this."
+          : 'Notification permission was not granted.',
+      );
+    }
+  }
 
   function handleSave() {
     updateSettings({
@@ -256,6 +284,31 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
               ))}
             </optgroup>
           </select>
+        </section>
+
+        <section className="mt-6">
+          <h3 className="flex items-center gap-2 font-semibold">
+            <BellIcon /> Notifications
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Get a browser notification when a tracked flight's gate, terminal, or status changes,
+            as long as this tab is open (even in the background) — nothing fires once the tab or
+            browser is closed.
+          </p>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={settings.notificationsEnabled}
+              onChange={handleNotificationsToggle}
+              className="h-5 w-5 rounded"
+            />
+            Enable flight change notifications
+          </label>
+          {notificationStatusMessage && (
+            <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              {notificationStatusMessage}
+            </p>
+          )}
         </section>
 
         <section className="mt-6">

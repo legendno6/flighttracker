@@ -31,11 +31,12 @@ export function resolveDisplayStatus(
   const arrEstimated = parseIso(arrival.estimated) ?? parseIso(arrival.scheduled);
 
   // Providers often lag on populating `actual` departure time (especially
-  // AviationStack's free tier), so their own coarse "active" signal is
-  // trusted as a fallback — otherwise a flight that's been airborne for an
-  // hour with no `actual` timestamp yet gets misread as merely "delayed"
-  // against its stale scheduled/estimated departure time.
-  const isAirborne = !!depActual || result.status === 'In Flight';
+  // AviationStack's free tier) and can leave the coarse status field on
+  // "scheduled" long after real-world departure — a live ADS-B position (any
+  // position, not just airborne ones — the on-ground sub-case is handled
+  // just below) is direct evidence the aircraft is already in its active
+  // flight phase, and is trusted over a stale timestamp/status guess.
+  const isAirborne = !!depActual || result.status === 'In Flight' || live != null;
 
   if (isAirborne) {
     // Already left the gate — somewhere in the air (or briefly on the ground pre-takeoff).

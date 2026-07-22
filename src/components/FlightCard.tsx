@@ -3,6 +3,7 @@ import type { TrackedFlight } from '../types/flight';
 import { StatusBadge } from './StatusBadge';
 import { ProgressBar } from './ProgressBar';
 import { LiveInfo } from './LiveInfo';
+import { AircraftPhoto } from './AircraftPhoto';
 import { GripIcon } from './icons/GripIcon';
 import { calculateFlightProgress } from '../services/progressCalculator';
 import { formatDurationCompact, formatDurationMinutes, formatTimeInZone, resolveDisplayTimezone } from '../utils/dateTimeUtils';
@@ -133,6 +134,8 @@ export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, drag
             <Field label="Arr. Gate" value={data.arrival.gate} />
             <Field label="Baggage" value={data.arrival.baggageClaim} />
           </div>
+
+          {data.live && category === 'inflight' && <AircraftPhoto icao24={data.live.icao24} />}
 
           {data.live && category === 'inflight' && <LiveInfo live={data.live} />}
 

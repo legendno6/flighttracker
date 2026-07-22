@@ -5,7 +5,7 @@ import {
   ProviderRateLimitError,
   ProviderUnavailableError,
 } from '../providers/FlightProvider';
-import type { FlightLookupResult, TrackedFlight } from '../types/flight';
+import type { FlightLookupResult, FlightStatus, TrackedFlight } from '../types/flight';
 import { canonicalFlightId, normalizeFlightInput } from './flightNormalizer';
 import { resolveDisplayStatus, statusSortPriority } from './statusResolver';
 import { parseIso } from '../utils/dateTimeUtils';
@@ -91,6 +91,42 @@ export function applyManualOrder(flights: TrackedFlight[], order: string[]): Tra
     const bIndex = indexOf.get(b.id) ?? Number.MAX_SAFE_INTEGER;
     return aIndex - bIndex;
   });
+}
+
+/** Status transitions worth a notification. Excludes `Departed`/`Descending`/`Unknown` — low-value, high-frequency states for an airborne flight refreshing repeatedly. */
+const NOTIFY_ON_STATUSES = new Set<FlightStatus>([
+  'Scheduled',
+  'Boarding',
+  'Gate Open',
+  'Delayed',
+  'Taxiing',
+  'In Flight',
+  'Cancelled',
+  'Diverted',
+  'Landed',
+]);
+
+/** Human-readable descriptions of notification-worthy changes between two lookups of the same tracked flight, or [] if nothing qualifies. The very first lookup (`oldData === null`) never notifies — there's nothing to compare against. */
+export function diffFlightForNotifications(oldData: FlightLookupResult | null, newData: FlightLookupResult): string[] {
+  if (!oldData) return [];
+
+  const changes: string[] = [];
+  if (oldData.status !== newData.status && NOTIFY_ON_STATUSES.has(newData.status)) {
+    changes.push(`Status changed to ${newData.status}`);
+  }
+  if (oldData.departure.gate !== newData.departure.gate && newData.departure.gate) {
+    changes.push(`Departure gate changed to ${newData.departure.gate}`);
+  }
+  if (oldData.departure.terminal !== newData.departure.terminal && newData.departure.terminal) {
+    changes.push(`Departure terminal changed to ${newData.departure.terminal}`);
+  }
+  if (oldData.arrival.gate !== newData.arrival.gate && newData.arrival.gate) {
+    changes.push(`Arrival gate changed to ${newData.arrival.gate}`);
+  }
+  if (oldData.arrival.terminal !== newData.arrival.terminal && newData.arrival.terminal) {
+    changes.push(`Arrival terminal changed to ${newData.arrival.terminal}`);
+  }
+  return changes;
 }
 
 /** Landed and cancelled flights never need another lookup — nothing about them changes anymore. */

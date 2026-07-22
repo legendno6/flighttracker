@@ -7,10 +7,12 @@ import {
   applyManualOrder,
   createPendingFlight,
   describeProviderError,
+  diffFlightForNotifications,
   finalizeLookupResult,
   isActivelyRefreshable,
   sortTrackedFlights,
 } from '../services/flightService';
+import { getNotificationPermission, notifyFlightChange } from '../services/notificationService';
 import type { ProviderManager } from '../providers/ProviderManager';
 import { useSettings } from '../contexts/SettingsContext';
 
@@ -55,11 +57,16 @@ export function useFlights(manager: ProviderManager) {
         const raw = await manager.lookupFlight({ normalized, flightDate }, { bypassCache });
         const result = finalizeLookupResult(raw);
         setFlights((prev) =>
-          prev.map((f) =>
-            f.id === id
-              ? { ...f, data: result, isLoading: false, lastError: null, lastRefreshedAt: new Date().toISOString() }
-              : f,
-          ),
+          prev.map((f) => {
+            if (f.id !== id) return f;
+            if (settings.notificationsEnabled && getNotificationPermission() === 'granted') {
+              const changes = diffFlightForNotifications(f.data, result);
+              if (changes.length > 0) {
+                notifyFlightChange(`${result.airline ?? f.input} ${result.flightNumber}`.trim(), changes);
+              }
+            }
+            return { ...f, data: result, isLoading: false, lastError: null, lastRefreshedAt: new Date().toISOString() };
+          }),
         );
       } catch (err) {
         setFlights((prev) =>
@@ -69,7 +76,7 @@ export function useFlights(manager: ProviderManager) {
         );
       }
     },
-    [manager],
+    [manager, settings.notificationsEnabled],
   );
 
   const addFlight = useCallback(

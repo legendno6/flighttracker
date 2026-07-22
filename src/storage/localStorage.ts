@@ -4,6 +4,16 @@ import type { TrackedFlight } from '../types/flight';
 const FLIGHTS_KEY = 'planestatus:flights';
 const SETTINGS_KEY = 'planestatus:settings';
 const FLIGHT_ORDER_KEY = 'planestatus:flightOrder';
+const AIRCRAFT_PHOTO_CACHE_KEY = 'planestatus:aircraftPhotos';
+
+/** A photo is airframe metadata keyed by ICAO24 alone, not tied to any one flight/date — cached indefinitely since a plane's photo doesn't change. `photoUrl: null` records a confirmed "no photo available" result so it isn't re-fetched every render. */
+export interface CachedAircraftPhoto {
+  photoUrl: string | null;
+  thumbnailUrl: string | null;
+  credit: string | null;
+  creditLink: string | null;
+  cachedAt: string; // ISO 8601
+}
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -56,6 +66,18 @@ export function saveSettings(settings: AppSettings): void {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch {
     // Storage full/unavailable — settings simply won't persist this session.
+  }
+}
+
+export function loadAircraftPhotoCache(): Record<string, CachedAircraftPhoto> {
+  return safeParse<Record<string, CachedAircraftPhoto>>(localStorage.getItem(AIRCRAFT_PHOTO_CACHE_KEY), {});
+}
+
+export function saveAircraftPhotoCache(cache: Record<string, CachedAircraftPhoto>): void {
+  try {
+    localStorage.setItem(AIRCRAFT_PHOTO_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Storage full/unavailable — photo cache simply won't persist this session.
   }
 }
 

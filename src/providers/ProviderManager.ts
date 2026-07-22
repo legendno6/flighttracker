@@ -162,10 +162,21 @@ export class ProviderManager {
 
   /**
    * Best-effort: if a result has no live position, try filling it in from
-   * OpenSky — only while the flight is actually in the air (Taxiing/
-   * Departed/In Flight/Descending), so this reliably shows for every
-   * in-flight card without wasting requests on flights that aren't
-   * currently flying and would never display it anyway.
+   * OpenSky — while the flight is actually in the air (Taxiing/Departed/In
+   * Flight/Descending), or (deliberately) while it merely *looks* delayed,
+   * so this reliably shows for every in-flight card without wasting
+   * requests on flights that clearly haven't reached their departure window
+   * yet and would never display it anyway.
+   *
+   * The 'delayed' case matters because of a chicken-and-egg problem: a real
+   * flight that already departed but whose provider hasn't updated its
+   * status field or `actual` departure time yet (AviationStack's free tier,
+   * especially) resolves to "Delayed" by `resolveDisplayStatus`'s own
+   * timestamp heuristic — but that heuristic also trusts a present `live`
+   * position as evidence of being airborne, and the only way to get that
+   * live position is to actually attempt this enrichment. Gating strictly on
+   * an already-"inflight" resolved status would mean this class of flight
+   * never gets a chance to correct itself.
    */
   private async enrichWithLivePosition(
     result: FlightLookupResult,
@@ -178,7 +189,8 @@ export class ProviderManager {
     // treats a present `departure.actual` as airborne even when the raw status
     // hasn't caught up yet), so this must check the same resolved category or
     // enrichment silently never fires for exactly the flights the card shows as in-flight.
-    if (statusCategory(resolveDisplayStatus(result)) !== 'inflight') return;
+    const category = statusCategory(resolveDisplayStatus(result));
+    if (category !== 'inflight' && category !== 'delayed') return;
     if (!this.sessionGovernor.hasRemaining()) return;
 
     try {

@@ -89,24 +89,35 @@ Open the app and click the gear icon (top right) to open **Settings**.
   browser network traffic at all. This matters more for FlightAware since
   AeroAPI is billed per request.
 
-## The proxy (FlightAware + OpenSky)
+## The proxy (FlightAware + OpenSky + aircraft photos)
 
 Neither AeroAPI nor OpenSky's REST API can be called from a browser (no CORS
 support on either — confirmed by testing, not assumed), so this project
-includes a minimal same-origin proxy for each:
+includes a minimal same-origin proxy for each. planespotters.net's photo API
+(used for the aircraft photo shown on in-flight cards) *is* CORS-enabled,
+but it requires every request to send a descriptive `User-Agent` identifying
+the calling app, and browsers won't let client-side JS override that header
+— so it's proxied the same way, even though the CORS problem itself doesn't
+apply.
 
-- `server/flightAwareCore.ts` / `server/openSkyCore.ts` — the actual
-  forwarding logic for each provider.
+- `server/flightAwareCore.ts` / `server/openSkyCore.ts` /
+  `server/aircraftPhotoCore.ts` — the actual forwarding logic for each
+  provider. The aircraft-photo one needs no API key, just the hardcoded
+  identifying `User-Agent` (confirmed necessary by testing: a generic
+  `curl`-style User-Agent gets a `403`, an identifying one gets a normal
+  `200`).
 - `server/viteFlightAwareProxyPlugin.ts` / `server/viteOpenSkyProxyPlugin.ts`
-  — Vite dev-server middleware that serves `/api/flightaware` and
-  `/api/opensky` automatically whenever you run `npm run dev`. Nothing extra
-  to start; both are wired into `vite.config.ts`.
-- `api/flightaware.ts` / `api/opensky.ts` — [Vercel serverless functions](https://vercel.com/docs/functions)
-  for production. Files under `/api` become endpoints automatically on
-  Vercel with zero config. Deploying elsewhere (Netlify Functions, Cloudflare
-  Pages Functions, a small Node server, etc.) means adapting these two files
-  to that platform's handler signature — the shared logic in
-  `flightAwareCore.ts`/`openSkyCore.ts` doesn't need to change.
+  / `server/viteAircraftPhotoProxyPlugin.ts` — Vite dev-server middleware
+  that serves `/api/flightaware`, `/api/opensky`, and `/api/aircraftPhoto`
+  automatically whenever you run `npm run dev`. Nothing extra to start; all
+  three are wired into `vite.config.ts`.
+- `api/flightaware.ts` / `api/opensky.ts` / `api/aircraftPhoto.ts` —
+  [Vercel serverless functions](https://vercel.com/docs/functions) for
+  production. Files under `/api` become endpoints automatically on Vercel
+  with zero config. Deploying elsewhere (Netlify Functions, Cloudflare Pages
+  Functions, a small Node server, etc.) means adapting these files to that
+  platform's handler signature — the shared logic in `flightAwareCore.ts`/
+  `openSkyCore.ts`/`aircraftPhotoCore.ts` doesn't need to change.
 
 The OpenSky proxy does slightly more than a dumb passthrough: it also
 matches the requested flight's ICAO callsign against OpenSky's global
@@ -127,7 +138,9 @@ cp .env.example .env
 `vite.config.ts`) and proxies `/api/flightaware` and `/api/opensky` requests
 through them. Skip either and that provider just reports "not configured",
 same as any other unconfigured provider — the chain falls through to
-whatever's next.
+whatever's next. `/api/aircraftPhoto` needs no environment variable at all —
+planespotters.net requires no API key, just the identifying `User-Agent`
+already hardcoded in `aircraftPhotoCore.ts`.
 
 ### Deploying
 
@@ -191,7 +204,7 @@ src/
   storage/       localStorage persistence
   types/         Shared TypeScript types
   utils/         Formatting and misc utilities
-server/          FlightAware/OpenSky proxy core logic + Vite dev-server middleware
+server/          FlightAware/OpenSky/aircraft-photo proxy core logic + Vite dev-server middleware
 api/             Vercel serverless functions (production proxy endpoints)
 ```
 
@@ -274,3 +287,16 @@ closed) for the broadcast tab to keep receiving updates.
   leg shows its own airport's local time (departure in its zone, arrival in
   its own). Override to show every card in one consistent zone instead —
   your device's timezone, or any specific IANA zone.
+- **Aircraft photos**: any in-flight card with a resolved ICAO24 (from
+  OpenSky) shows a real photo of that airframe, sourced from
+  planespotters.net with photographer attribution. Cached indefinitely in
+  `localStorage` by ICAO24 (a plane's photo doesn't change), independent of
+  the 60-second flight-lookup cache and the session request limit — a photo
+  fetch never counts against either.
+- **Flight change notifications** (Settings → Notifications): opt-in browser
+  notifications when a tracked flight's gate, terminal, or status changes on
+  refresh. Foreground-only — it's the plain `Notification` Web API riding on
+  the app's existing refresh cycle, not full Web Push, so it only fires
+  while this tab is open somewhere (doesn't need focus) and stops the moment
+  the tab or browser closes. Enabling it requests the browser's native
+  notification permission; declining reverts the toggle and explains why.

@@ -35,6 +35,8 @@ export interface AppSettings {
   sessionRequestLimit: number;
   /** Overrides each leg's own airport timezone with one consistent zone across all cards, when not 'airport-local'. */
   displayTimezone: DisplayTimezoneSetting;
+  /** Fires a browser Notification when a tracked flight's gate/terminal/status changes, as long as this tab is open. Requires the browser's Notification permission to actually be granted — see `notificationService.ts`. */
+  notificationsEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -51,4 +53,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   flightSortMode: 'auto',
   sessionRequestLimit: 100,
   displayTimezone: 'airport-local',
+  notificationsEnabled: false,
 };
