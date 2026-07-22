@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-slate-950;
+  }
+}
+
+@layer utilities {
+  .progress-track {
+    @apply h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800;
+  }
+  .progress-fill {
+    @apply h-full rounded-full bg-status-inflight transition-[width] duration-700 ease-out;
+  }
+}

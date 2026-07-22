@@ -1,0 +1,268 @@
+/*
+ * Solari/split-flap departures-board aesthetic. Deliberately single-theme —
+ * a physical airport board doesn't have a "light mode" — so this file does
+ * not participate in the app's light/dark toggle at all.
+ */
+
+.fids-board {
+  --fids-bg: #0b0b0c;
+  --fids-vignette: #17140f;
+  --fids-tile-bg: #201d18;
+  --fids-tile-bg-lo: #171512;
+  --fids-tile-seam: #060504;
+  --fids-ink: #ff9d1f;
+  --fids-ink-dim: #7a5522;
+  --fids-white: #f2ede1;
+  --fids-white-dim: #6b675c;
+  --fids-good: #34d399;
+  --fids-warn: #ffd23f;
+  --fids-bad: #ff5c5c;
+  --fids-live: #4dd8e6;
+  --fids-cell-w: clamp(1.5rem, 2.05vw, 2.15rem);
+  --fids-cell-h: calc(var(--fids-cell-w) * 1.32);
+  /*
+   * Column tracks are sized to the exact pixel width of the flap-tile group
+   * they hold (character count * cell width + inter-tile gaps), not
+   * eyeballed fr ratios — .fids-columns and .fids-row share these same
+   * values, so the header and every row's tiles always land in identical
+   * positions. Guessed fr ratios previously let a wide field (e.g. an
+   * 11-tile status word) overflow into the next column at some viewport
+   * widths, visibly drifting out of register with its header.
+   */
+  --fids-col-w3: calc(3 * var(--fids-cell-w) + 2 * 1px);
+  --fids-col-w8: calc(8 * var(--fids-cell-w) + 7 * 1px);
+  --fids-col-w10: calc(10 * var(--fids-cell-w) + 9 * 1px);
+  --fids-columns: var(--fids-col-w8) var(--fids-col-w3) var(--fids-col-w8) var(--fids-col-w3) var(--fids-col-w8)
+    var(--fids-col-w10) var(--fids-col-w3);
+
+  min-height: 100vh;
+  background: radial-gradient(ellipse 120% 60% at 50% -10%, var(--fids-vignette) 0%, var(--fids-bg) 62%);
+  color: var(--fids-ink);
+  font-family: 'Arial Narrow', 'Liberation Sans Narrow', Arial, sans-serif;
+  padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 3vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.1rem, 2.4vw, 1.85rem);
+  box-sizing: border-box;
+}
+
+.fids-board * {
+  box-sizing: border-box;
+}
+
+.fids-topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--fids-ink-dim);
+  padding-bottom: clamp(0.75rem, 1.6vw, 1.1rem);
+}
+
+.fids-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.fids-wordmark svg {
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--fids-white);
+  flex-shrink: 0;
+}
+
+.fids-wordmark-text {
+  color: var(--fids-white);
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.fids-wordmark-sub {
+  color: var(--fids-ink-dim);
+  font-size: clamp(0.65rem, 1vw, 0.78rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+.fids-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.fids-clock-date {
+  color: var(--fids-white-dim);
+  font-size: clamp(0.7rem, 1.05vw, 0.85rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.fids-table {
+  overflow-x: auto;
+  /* Flex children refuse to shrink below their content's natural size by
+     default, which would otherwise make the whole page grow wider instead
+     of this table scrolling internally when the board is narrower than the
+     fixed column widths below. */
+  min-width: 0;
+}
+
+.fids-columns {
+  display: grid;
+  grid-template-columns: var(--fids-columns);
+  gap: 0.5rem;
+  color: var(--fids-white-dim);
+  font-size: clamp(0.68rem, 0.95vw, 0.8rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--fids-tile-seam);
+}
+
+.fids-columns > div {
+  text-align: center;
+}
+
+.fids-rows {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.6rem, 1.4vw, 1rem);
+}
+
+.fids-row {
+  display: grid;
+  grid-template-columns: var(--fids-columns);
+  gap: 0.5rem;
+  align-items: start;
+  padding-bottom: clamp(0.6rem, 1.4vw, 1rem);
+  border-bottom: 1px dashed rgba(122, 85, 34, 0.35);
+}
+
+.fids-row:last-child {
+  border-bottom: none;
+}
+
+.fids-cell-label {
+  color: var(--fids-white-dim);
+  font-size: clamp(0.6rem, 0.85vw, 0.72rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-top: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fids-flap-row {
+  display: flex;
+  gap: 1px;
+}
+
+.fids-flap {
+  position: relative;
+  width: var(--fids-cell-w);
+  height: var(--fids-cell-h);
+  perspective: 240px;
+  flex-shrink: 0;
+}
+
+.fids-flap-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fids-tile-bg);
+  border-radius: 2px;
+  font-family: ui-monospace, 'Cascadia Mono', 'SF Mono', 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 700;
+  font-size: calc(var(--fids-cell-w) * 0.62);
+  line-height: 1;
+  box-shadow:
+    inset 0 0 0 1px var(--fids-tile-seam),
+    0 1px 0 rgba(0, 0, 0, 0.4);
+  backface-visibility: hidden;
+  color: var(--fids-flap-color, var(--fids-ink));
+}
+
+.fids-flap-face::after {
+  /* the horizontal split-flap seam, drawn once across every tile */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 0.5px);
+  height: 1px;
+  background: var(--fids-tile-seam);
+  opacity: 0.9;
+}
+
+.fids-flap-face.is-back {
+  transform: rotateX(180deg);
+  background: var(--fids-tile-bg-lo);
+}
+
+.fids-flap.is-flipping .fids-flap-front {
+  animation: fids-flip-front 260ms cubic-bezier(0.5, 0, 0.75, 0.6) forwards;
+}
+
+.fids-flap.is-flipping .fids-flap-back {
+  animation: fids-flip-back 260ms cubic-bezier(0.25, 0.4, 0.5, 1) forwards;
+}
+
+@keyframes fids-flip-front {
+  0% {
+    transform: rotateX(0deg);
+  }
+  100% {
+    transform: rotateX(-90deg);
+  }
+}
+
+@keyframes fids-flip-back {
+  0% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+  }
+}
+
+.fids-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  color: var(--fids-white-dim);
+  font-size: clamp(0.65rem, 0.95vw, 0.78rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding-top: clamp(0.75rem, 1.6vw, 1.1rem);
+  border-top: 1px solid var(--fids-ink-dim);
+}
+
+.fids-footer-dot {
+  color: var(--fids-live);
+}
+
+.fids-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fids-ink-dim);
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fids-flap.is-flipping .fids-flap-front,
+  .fids-flap.is-flipping .fids-flap-back {
+    animation: none !important;
+  }
+}
+
