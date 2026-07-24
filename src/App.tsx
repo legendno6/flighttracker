@@ -8,6 +8,7 @@ import { AddFlightForm } from './components/AddFlightForm';
 import { RefreshControls } from './components/RefreshControls';
 import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
+import { HelpModal } from './components/HelpModal';
 import { isActivelyRefreshable } from './services/flightService';
 
 function AppShell() {
@@ -30,6 +31,7 @@ function AppShell() {
     refreshAll,
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [, forceRerender] = useState(0);
   const activeFlightCount = useMemo(() => flights.filter((f) => isActivelyRefreshable(f)).length, [flights]);
 
@@ -50,7 +52,11 @@ function AppShell() {
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <Header onOpenSettings={() => setSettingsOpen(true)} flightCount={flights.length} />
+      <Header
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenHelp={() => setHelpOpen(true)}
+        flightCount={flights.length}
+      />
 
       <main className="mt-6 space-y-4">
         <AddFlightForm onAdd={addFlight} />
@@ -58,6 +64,7 @@ function AppShell() {
         <RefreshControls
           refreshIntervalMinutes={settings.refreshIntervalMinutes}
           onChangeInterval={(minutes) => updateSettings({ refreshIntervalMinutes: minutes })}
+          allowFastRefresh={settings.allowFastRefresh}
           lastUpdatedAt={lastUpdatedAt}
           nextRefreshAt={nextRefreshAt}
           onRefreshAll={handleRefreshAll}
@@ -85,6 +92,8 @@ function AppShell() {
         activeFlightCount={activeFlightCount}
         onRestartSession={handleRestartSession}
       />
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

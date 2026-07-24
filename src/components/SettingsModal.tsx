@@ -264,6 +264,37 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
         </section>
 
         <section className="mt-6">
+          <h3 className="font-semibold">Advanced</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Unlocks 1-minute and 5-minute auto-refresh options in the toolbar dropdown. Only useful
+            if you're on a paid plan with one of the providers — a free-tier budget can be
+            exhausted in minutes at this cadence. Selecting either still requires confirming a
+            warning.
+          </p>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={settings.allowFastRefresh}
+              onChange={(e) => {
+                const allowFastRefresh = e.target.checked;
+                // Otherwise the interval dropdown loses its 1/5-min options while
+                // refreshIntervalMinutes still holds one of those values — the
+                // native <select> then silently displays its first option ("Off")
+                // since no matching <option> exists, even though auto-refresh is
+                // still actually running at the old fast cadence underneath.
+                const isCurrentlyFast = settings.refreshIntervalMinutes === 1 || settings.refreshIntervalMinutes === 5;
+                updateSettings({
+                  allowFastRefresh,
+                  ...(!allowFastRefresh && isCurrentlyFast ? { refreshIntervalMinutes: 15 } : {}),
+                });
+              }}
+              className="h-5 w-5 rounded"
+            />
+            Allow high-frequency refresh (1 min / 5 min)
+          </label>
+        </section>
+
+        <section className="mt-6">
           <h3 className="font-semibold">Time display</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             By default each leg shows its own airport's local time (e.g. departure in Eastern,
@@ -284,6 +315,23 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
               ))}
             </optgroup>
           </select>
+        </section>
+
+        <section className="mt-6">
+          <h3 className="font-semibold">Aircraft photos</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Shows a real photo of the tracked aircraft (via planespotters.net) on in-flight cards,
+            once its ICAO24 hex address is known.
+          </p>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={settings.showAircraftPhoto}
+              onChange={(e) => updateSettings({ showAircraftPhoto: e.target.checked })}
+              className="h-5 w-5 rounded"
+            />
+            Show aircraft photo on in-flight cards
+          </label>
         </section>
 
         <section className="mt-6">

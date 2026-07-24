@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { REFRESH_INTERVAL_OPTIONS } from '../utils/constants';
 import type { RefreshIntervalMinutes } from '../types/settings';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -6,6 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 interface RefreshControlsProps {
   refreshIntervalMinutes: RefreshIntervalMinutes;
   onChangeInterval: (minutes: RefreshIntervalMinutes) => void;
+  allowFastRefresh: boolean;
   lastUpdatedAt: Date | null;
   nextRefreshAt: Date | null;
   onRefreshAll: () => void;
@@ -23,6 +24,7 @@ function formatClock(date: Date | null): string {
 export function RefreshControls({
   refreshIntervalMinutes,
   onChangeInterval,
+  allowFastRefresh,
   lastUpdatedAt,
   nextRefreshAt,
   onRefreshAll,
@@ -32,6 +34,18 @@ export function RefreshControls({
   onRestartSession,
 }: RefreshControlsProps) {
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [pendingFastValue, setPendingFastValue] = useState<RefreshIntervalMinutes | null>(null);
+
+  const intervalOptions = REFRESH_INTERVAL_OPTIONS.filter((opt) => !opt.fast || allowFastRefresh);
+
+  function handleIntervalChange(e: ChangeEvent<HTMLSelectElement>) {
+    const next = Number(e.target.value) as RefreshIntervalMinutes;
+    if ((next === 1 || next === 5) && next !== refreshIntervalMinutes) {
+      setPendingFastValue(next);
+      return;
+    }
+    onChangeInterval(next);
+  }
 
   return (
     <div>
@@ -55,10 +69,10 @@ export function RefreshControls({
           <select
             id="refresh-interval"
             value={refreshIntervalMinutes}
-            onChange={(e) => onChangeInterval(Number(e.target.value) as RefreshIntervalMinutes)}
+            onChange={handleIntervalChange}
             className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-800"
           >
-            {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+            {intervalOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -100,6 +114,18 @@ export function RefreshControls({
             setConfirmingClear(false);
           }}
           onCancel={() => setConfirmingClear(false)}
+        />
+
+        <ConfirmDialog
+          open={pendingFastValue !== null}
+          title="Enable high-frequency refresh?"
+          message={`Refreshing every ${pendingFastValue === 1 ? 'minute' : `${pendingFastValue} minutes`} can exhaust a free-tier API budget in minutes. This is intended for paid provider plans. Continue?`}
+          confirmLabel="Enable"
+          onConfirm={() => {
+            if (pendingFastValue !== null) onChangeInterval(pendingFastValue);
+            setPendingFastValue(null);
+          }}
+          onCancel={() => setPendingFastValue(null)}
         />
       </div>
     </div>

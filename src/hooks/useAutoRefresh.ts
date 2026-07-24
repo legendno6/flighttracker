@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { RefreshIntervalMinutes } from '../types/settings';
 
-export function useAutoRefresh(refreshIntervalMinutes: RefreshIntervalMinutes, refreshAll: (options?: { onlyActive?: boolean }) => void) {
+export function useAutoRefresh(
+  refreshIntervalMinutes: RefreshIntervalMinutes,
+  refreshAll: (options?: { onlyActive?: boolean; respectTier?: boolean }) => void,
+) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [nextRefreshAt, setNextRefreshAt] = useState<Date | null>(null);
 
@@ -15,7 +18,7 @@ export function useAutoRefresh(refreshIntervalMinutes: RefreshIntervalMinutes, r
     setNextRefreshAt(new Date(Date.now() + intervalMs));
 
     const id = window.setInterval(() => {
-      refreshAll({ onlyActive: true });
+      refreshAll({ onlyActive: true, respectTier: true });
       setLastUpdatedAt(new Date());
       setNextRefreshAt(new Date(Date.now() + intervalMs));
     }, intervalMs);

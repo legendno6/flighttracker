@@ -225,6 +225,13 @@ the cross-tab `storage` event (plus a slow poll as a fallback). The main app
 tab needs to stay open somewhere (it can be in the background, just not
 closed) for the broadcast tab to keep receiving updates.
 
+## Help
+
+Click the **?** icon (top right) for an in-app, tabbed help panel covering
+Getting Started, Auto-Refresh, Data Providers, Notifications & Photos,
+Display & Sorting, and Broadcast Board — a quick reference without leaving
+the app.
+
 ## Notable behavior
 
 - **Flight number parsing**: accepts IATA (`AA123`), ICAO (`AAL210`), and
@@ -238,12 +245,22 @@ closed) for the broadcast tab to keep receiving updates.
   left in the box for correction.
 - **Duplicate detection**: adding the same flight number + date twice
   highlights the existing card instead of creating a second one.
-- **Auto-refresh**: Off / 15 min / 30 min / 1 hr, chosen deliberately short
-  of the 1–10 minute range so a full evening of tracking doesn't burn
-  through AviationStack's 100/month free-tier budget. Once a flight lands or
-  is cancelled, it stops entirely — no more auto-refresh, no more inclusion
-  in Refresh All, and the per-card Refresh button itself disappears (leaving
-  only Remove), since nothing about it changes anymore.
+- **Auto-refresh**: Off / 10 / 15 / 30 min / 1 hr by default, chosen to
+  avoid burning through AviationStack's 100/month free-tier budget. A 1 min
+  / 5 min option is also available for paid API plans — enable "Allow
+  high-frequency refresh" in Settings → Advanced first, then selecting
+  either from the dropdown requires confirming a warning about API usage.
+  Once a flight lands or is cancelled, it stops entirely — no more
+  auto-refresh, no more inclusion in Refresh All, and the per-card Refresh
+  button itself disappears (leaving only Remove), since nothing about it
+  changes anymore.
+- **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
+  departure only every 4 hours, and flights 12–24h out only every hour,
+  regardless of the interval selected above — gates and terminals essentially
+  never change that far in advance. Once a flight is within 12h of departure
+  (or has already departed), it refreshes at your selected interval as
+  normal. This only throttles the *automatic* timer; "Refresh All" and each
+  card's own Refresh button always run immediately.
 - **Status inference guards against a stuck "In Flight"**: providers
   sometimes just never flip their own status field to "landed." If a flight
   is more than an hour past its estimated arrival with no live position data
@@ -293,12 +310,14 @@ closed) for the broadcast tab to keep receiving updates.
   leg shows its own airport's local time (departure in its zone, arrival in
   its own). Override to show every card in one consistent zone instead —
   your device's timezone, or any specific IANA zone.
-- **Aircraft photos**: any in-flight card with a resolved ICAO24 (from
-  OpenSky) shows a real photo of that airframe, sourced from
-  planespotters.net with photographer attribution. Cached indefinitely in
-  `localStorage` by ICAO24 (a plane's photo doesn't change), independent of
-  the 60-second flight-lookup cache and the session request limit — a photo
-  fetch never counts against either.
+- **Aircraft photos** (Settings → Aircraft photos, on by default): any
+  in-flight card with a resolved ICAO24 (from OpenSky) shows a real photo of
+  that airframe, sourced from planespotters.net with photographer
+  attribution. Cached indefinitely in `localStorage` by ICAO24 (a plane's
+  photo doesn't change), independent of the 60-second flight-lookup cache
+  and the session request limit — a photo fetch never counts against
+  either. Turning the setting off just hides the photo on cards; it doesn't
+  clear the cache.
 - **Flight change notifications** (Settings → Notifications): opt-in browser
   notifications when a tracked flight's gate, terminal, or status changes on
   refresh. Foreground-only — it's the plain `Notification` Web API riding on

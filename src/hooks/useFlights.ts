@@ -10,6 +10,7 @@ import {
   diffFlightForNotifications,
   finalizeLookupResult,
   isActivelyRefreshable,
+  isDueForAutoRefresh,
   sortTrackedFlights,
 } from '../services/flightService';
 import { getNotificationPermission, notifyFlightChange } from '../services/notificationService';
@@ -122,14 +123,17 @@ export function useFlights(manager: ProviderManager) {
   );
 
   const refreshAll = useCallback(
-    (options?: { onlyActive?: boolean }) => {
+    (options?: { onlyActive?: boolean; respectTier?: boolean }) => {
       const onlyActive = options?.onlyActive ?? true;
+      const respectTier = options?.respectTier ?? false;
+      const now = new Date();
       for (const flight of flightsRef.current) {
         if (onlyActive && !isActivelyRefreshable(flight)) continue;
+        if (respectTier && !isDueForAutoRefresh(flight, settings.refreshIntervalMinutes, now)) continue;
         void runLookup(flight.id, flight.input, flight.flightDate, true);
       }
     },
-    [runLookup],
+    [runLookup, settings.refreshIntervalMinutes],
   );
 
   const displayedFlights = useMemo(() => {

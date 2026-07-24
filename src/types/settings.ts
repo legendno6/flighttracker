@@ -1,4 +1,4 @@
-export type RefreshIntervalMinutes = 0 | 15 | 30 | 60;
+export type RefreshIntervalMinutes = 0 | 1 | 5 | 10 | 15 | 30 | 60;
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -37,6 +37,10 @@ export interface AppSettings {
   displayTimezone: DisplayTimezoneSetting;
   /** Fires a browser Notification when a tracked flight's gate/terminal/status changes, as long as this tab is open. Requires the browser's Notification permission to actually be granted — see `notificationService.ts`. */
   notificationsEnabled: boolean;
+  /** Shows the planespotters.net aircraft photo on in-flight cards. On by default; purely cosmetic, so opt-out rather than opt-in. */
+  showAircraftPhoto: boolean;
+  /** Unlocks the 1-minute and 5-minute auto-refresh options in the toolbar dropdown. Off by default — that cadence can exhaust a free-tier API budget in minutes; intended for users on a paid provider plan. Selecting 1/5 min still requires confirming a warning dialog even once unlocked. */
+  allowFastRefresh: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -54,4 +58,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sessionRequestLimit: 100,
   displayTimezone: 'airport-local',
   notificationsEnabled: false,
+  showAircraftPhoto: true,
+  allowFastRefresh: false,
 };

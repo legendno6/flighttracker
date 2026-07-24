@@ -8,7 +8,7 @@ import {
 import type { FlightLookupResult, FlightStatus, TrackedFlight } from '../types/flight';
 import { canonicalFlightId, normalizeFlightInput } from './flightNormalizer';
 import { resolveDisplayStatus, statusSortPriority } from './statusResolver';
-import { parseIso } from '../utils/dateTimeUtils';
+import { minutesBetween, parseIso, minutesUntil } from '../utils/dateTimeUtils';
 
 export function createPendingFlight(rawInput: string, flightDate: string): TrackedFlight {
   const normalized = normalizeFlightInput(rawInput);
@@ -133,4 +133,44 @@ export function diffFlightForNotifications(oldData: FlightLookupResult | null, n
 export function isActivelyRefreshable(flight: TrackedFlight): boolean {
   if (!flight.data) return true;
   return flight.data.status !== 'Cancelled' && flight.data.status !== 'Landed';
+}
+
+const FAR_TIER_THRESHOLD_MINUTES = 24 * 60;
+const FAR_TIER_INTERVAL_MINUTES = 4 * 60;
+const MID_TIER_THRESHOLD_MINUTES = 12 * 60;
+const MID_TIER_INTERVAL_MINUTES = 60;
+
+/**
+ * How many minutes should elapse between automatic refreshes of this flight.
+ * Gates/terminals essentially never change more than a day out, so far-out
+ * flights are checked far less often than the user's own base interval —
+ * that base interval still applies once a flight is within 12h of
+ * departure (or already departed/landed/etc., where minutes-to-departure
+ * goes negative), which is when gate/status changes actually happen.
+ */
+export function refreshIntervalForFlight(
+  flight: TrackedFlight,
+  baseIntervalMinutes: number,
+  now: Date = new Date(),
+): number {
+  const departure = flight.data
+    ? (parseIso(flight.data.departure.estimated) ?? parseIso(flight.data.departure.scheduled))
+    : null;
+  const minsToDeparture = minutesUntil(departure, now);
+  if (minsToDeparture === null) return baseIntervalMinutes;
+  if (minsToDeparture > FAR_TIER_THRESHOLD_MINUTES) return FAR_TIER_INTERVAL_MINUTES;
+  if (minsToDeparture > MID_TIER_THRESHOLD_MINUTES) return MID_TIER_INTERVAL_MINUTES;
+  return baseIntervalMinutes;
+}
+
+/** Whether enough time has passed since this flight's last lookup, per its own tiered interval (see `refreshIntervalForFlight`). Used only to throttle the *automatic* refresh tick — manual refreshes always run immediately. */
+export function isDueForAutoRefresh(
+  flight: TrackedFlight,
+  baseIntervalMinutes: number,
+  now: Date = new Date(),
+): boolean {
+  const lastRefreshed = parseIso(flight.lastRefreshedAt);
+  if (!lastRefreshed) return true;
+  const tierIntervalMinutes = refreshIntervalForFlight(flight, baseIntervalMinutes, now);
+  return minutesBetween(lastRefreshed, now) >= tierIntervalMinutes;
 }

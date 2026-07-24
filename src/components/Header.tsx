@@ -1,5 +1,8 @@
+import { HelpIcon } from './icons/HelpIcon';
+
 interface HeaderProps {
   onOpenSettings: () => void;
+  onOpenHelp: () => void;
   flightCount: number;
 }
 
@@ -8,7 +11,7 @@ function openBroadcastBoard() {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export function Header({ onOpenSettings, flightCount }: HeaderProps) {
+export function Header({ onOpenSettings, onOpenHelp, flightCount }: HeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-slate-200 pb-4 dark:border-slate-800">
       <div>
@@ -38,6 +41,14 @@ export function Header({ onOpenSettings, flightCount }: HeaderProps) {
             <path d="M8 21h8M12 17v4" />
           </svg>
           <span className="hidden sm:inline">Broadcast</span>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenHelp}
+          aria-label="Open help"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <HelpIcon />
         </button>
         <button
           type="button"

@@ -135,7 +135,7 @@ export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, drag
             <Field label="Baggage" value={data.arrival.baggageClaim} />
           </div>
 
-          {data.live && category === 'inflight' && <AircraftPhoto icao24={data.live.icao24} />}
+          {settings.showAircraftPhoto && data.live && category === 'inflight' && <AircraftPhoto icao24={data.live.icao24} />}
 
           {data.live && category === 'inflight' && <LiveInfo live={data.live} />}
 
