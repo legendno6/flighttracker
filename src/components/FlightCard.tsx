@@ -8,6 +8,7 @@ import { GripIcon } from './icons/GripIcon';
 import { calculateFlightProgress } from '../services/progressCalculator';
 import { formatDurationCompact, formatDurationMinutes, formatTimeInZone, resolveDisplayTimezone } from '../utils/dateTimeUtils';
 import { statusCategory } from '../services/statusResolver';
+import { endOfLocalDay } from '../services/flightService';
 import { cn } from '../utils/classNames';
 import { useClockTick } from '../hooks/useClockTick';
 import { useSettings } from '../contexts/SettingsContext';
@@ -34,6 +35,11 @@ export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, drag
   const progress = data && category === 'inflight' ? calculateFlightProgress(data) : null;
   const flightAwareIdent = data?.flightIcao ?? data?.flightIata ?? null;
   const flightAwareUrl = flightAwareIdent ? `https://www.flightaware.com/live/flight/${flightAwareIdent}` : null;
+
+  const farOutWaiting = flight.farOutDeferred && !data && !isLoading && !lastError;
+  const farOutFirstCheckAt = farOutWaiting
+    ? new Date(endOfLocalDay(flight.flightDate).getTime() - 36 * 60 * 60_000)
+    : null;
 
   const borderColor: Record<string, string> = {
     ontime: 'border-l-emerald-500',
@@ -106,6 +112,24 @@ export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, drag
           className="mt-4 whitespace-pre-line rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
         >
           {lastError}
+        </div>
+      )}
+
+      {farOutWaiting && (
+        <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
+          This flight's date is more than a day out — free-tier plans usually can't look it up yet.
+          Tracking will start automatically around{' '}
+          <strong>
+            {farOutFirstCheckAt?.toLocaleString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+          </strong>
+          , about 36 hours before departure, to save API calls. Click Refresh below to check sooner
+          anyway.
         </div>
       )}
 

@@ -10,7 +10,7 @@ import { canonicalFlightId, normalizeFlightInput } from './flightNormalizer';
 import { resolveDisplayStatus, statusSortPriority } from './statusResolver';
 import { minutesBetween, parseIso, minutesUntil } from '../utils/dateTimeUtils';
 
-export function createPendingFlight(rawInput: string, flightDate: string): TrackedFlight {
+export function createPendingFlight(rawInput: string, flightDate: string, farOutDeferred = false): TrackedFlight {
   const normalized = normalizeFlightInput(rawInput);
   const id = canonicalFlightId(normalized, flightDate);
   const displayInput = normalized.icaoFlightNumber ?? normalized.iataFlightNumber ?? normalized.raw;
@@ -21,9 +21,12 @@ export function createPendingFlight(rawInput: string, flightDate: string): Track
     flightDate,
     data: null,
     lastError: null,
-    isLoading: true,
+    // Far-out-deferred flights skip the immediate lookup entirely (see useFlights' addFlight), so there's nothing loading yet.
+    isLoading: !farOutDeferred,
     lastRefreshedAt: null,
+    lastAttemptedAt: null,
     addedAt: new Date().toISOString(),
+    farOutDeferred,
   };
 }
 
@@ -135,42 +138,88 @@ export function isActivelyRefreshable(flight: TrackedFlight): boolean {
   return flight.data.status !== 'Cancelled' && flight.data.status !== 'Landed';
 }
 
+/** Calendar-day difference between a yyyy-mm-dd flight date and `today` (local time), ignoring time-of-day. */
+function daysUntilFlightDate(flightDate: string, today: Date): number {
+  const [y, m, d] = flightDate.split('-').map(Number);
+  const flightMidnight = new Date(y, m - 1, d).getTime();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.round((flightMidnight - todayMidnight) / 86_400_000);
+}
+
+/** Free-tier flight-data plans typically only return results for today and tomorrow — 2+ calendar days out needs the paid-access confirmation flow (see useFlights' addFlight/confirmFarOutAccess). */
+export function isFarOutFlightDate(flightDate: string, today: Date = new Date()): boolean {
+  return daysUntilFlightDate(flightDate, today) >= 2;
+}
+
+/** 23:59:59.999 local time on the given yyyy-mm-dd date — a stand-in "departure instant" for far-out-deferred flights before any real schedule data exists (all that's known pre-lookup is the calendar date the user picked, not a time). */
+export function endOfLocalDay(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
 const FAR_TIER_THRESHOLD_MINUTES = 24 * 60;
 const FAR_TIER_INTERVAL_MINUTES = 4 * 60;
 const MID_TIER_THRESHOLD_MINUTES = 12 * 60;
 const MID_TIER_INTERVAL_MINUTES = 60;
 
+/** Far-out-deferred flights (TrackedFlight.farOutDeferred) get two extra, more extreme brackets on top of the normal three, since the free tier can't return anything at all this far out. */
+const DEFERRED_DORMANT_THRESHOLD_MINUTES = 36 * 60;
+const DEFERRED_BRIDGE_THRESHOLD_MINUTES = 30 * 60;
+const DEFERRED_BRIDGE_INTERVAL_MINUTES = 6 * 60;
+
+interface RefreshTier {
+  intervalMinutes: number;
+  /** True while a far-out-deferred flight is still more than 36h from its (possibly assumed) departure — no automatic checks at all, overriding the usual "never checked yet, so check now" default. */
+  dormant: boolean;
+}
+
 /**
- * How many minutes should elapse between automatic refreshes of this flight.
- * Gates/terminals essentially never change more than a day out, so far-out
+ * How many minutes should elapse between automatic refreshes of this
+ * flight, and whether it's currently dormant (no checks at all). Gates/
+ * terminals essentially never change more than a day out, so far-out
  * flights are checked far less often than the user's own base interval —
  * that base interval still applies once a flight is within 12h of
  * departure (or already departed/landed/etc., where minutes-to-departure
  * goes negative), which is when gate/status changes actually happen.
+ *
+ * Far-out-deferred flights (added 2+ days out by a user without paid API
+ * access) get two extra brackets first: dormant beyond 36h out (an
+ * immediate lookup would just fail against a free-tier plan, so don't
+ * bother), then a single 6-hour-spaced check between 36h and 30h out,
+ * before handing off to the same three brackets everything else uses.
  */
-export function refreshIntervalForFlight(
-  flight: TrackedFlight,
-  baseIntervalMinutes: number,
-  now: Date = new Date(),
-): number {
-  const departure = flight.data
+function computeRefreshTier(flight: TrackedFlight, baseIntervalMinutes: number, now: Date): RefreshTier {
+  const realDeparture = flight.data
     ? (parseIso(flight.data.departure.estimated) ?? parseIso(flight.data.departure.scheduled))
     : null;
-  const minsToDeparture = minutesUntil(departure, now);
-  if (minsToDeparture === null) return baseIntervalMinutes;
-  if (minsToDeparture > FAR_TIER_THRESHOLD_MINUTES) return FAR_TIER_INTERVAL_MINUTES;
-  if (minsToDeparture > MID_TIER_THRESHOLD_MINUTES) return MID_TIER_INTERVAL_MINUTES;
-  return baseIntervalMinutes;
+
+  if (!flight.farOutDeferred) {
+    const minsToDeparture = minutesUntil(realDeparture, now);
+    if (minsToDeparture === null) return { intervalMinutes: baseIntervalMinutes, dormant: false };
+    if (minsToDeparture > FAR_TIER_THRESHOLD_MINUTES) return { intervalMinutes: FAR_TIER_INTERVAL_MINUTES, dormant: false };
+    if (minsToDeparture > MID_TIER_THRESHOLD_MINUTES) return { intervalMinutes: MID_TIER_INTERVAL_MINUTES, dormant: false };
+    return { intervalMinutes: baseIntervalMinutes, dormant: false };
+  }
+
+  // Far-out-deferred: use the real scheduled/estimated time once a lookup has succeeded, otherwise the assumed end-of-day instant.
+  const referenceDeparture = realDeparture ?? endOfLocalDay(flight.flightDate);
+  const minsToReference = minutesBetween(now, referenceDeparture);
+  if (minsToReference > DEFERRED_DORMANT_THRESHOLD_MINUTES) return { intervalMinutes: Infinity, dormant: true };
+  if (minsToReference > DEFERRED_BRIDGE_THRESHOLD_MINUTES) return { intervalMinutes: DEFERRED_BRIDGE_INTERVAL_MINUTES, dormant: false };
+  if (minsToReference > FAR_TIER_THRESHOLD_MINUTES) return { intervalMinutes: FAR_TIER_INTERVAL_MINUTES, dormant: false };
+  if (minsToReference > MID_TIER_THRESHOLD_MINUTES) return { intervalMinutes: MID_TIER_INTERVAL_MINUTES, dormant: false };
+  return { intervalMinutes: baseIntervalMinutes, dormant: false };
 }
 
-/** Whether enough time has passed since this flight's last lookup, per its own tiered interval (see `refreshIntervalForFlight`). Used only to throttle the *automatic* refresh tick — manual refreshes always run immediately. */
+/** Whether enough time has passed since this flight's last lookup *attempt*, per its own tiered interval (see `computeRefreshTier`). Used only to throttle the *automatic* refresh tick — manual refreshes always run immediately. Keyed off the last attempt rather than the last success so a repeatedly-failing lookup (e.g. a far-out flight still too early for the free tier) doesn't retry on every single tick. */
 export function isDueForAutoRefresh(
   flight: TrackedFlight,
   baseIntervalMinutes: number,
   now: Date = new Date(),
 ): boolean {
-  const lastRefreshed = parseIso(flight.lastRefreshedAt);
-  if (!lastRefreshed) return true;
-  const tierIntervalMinutes = refreshIntervalForFlight(flight, baseIntervalMinutes, now);
-  return minutesBetween(lastRefreshed, now) >= tierIntervalMinutes;
+  const tier = computeRefreshTier(flight, baseIntervalMinutes, now);
+  if (tier.dormant) return false;
+  const lastAttempted = parseIso(flight.lastAttemptedAt);
+  if (!lastAttempted) return true;
+  return minutesBetween(lastAttempted, now) >= tier.intervalMinutes;
 }

@@ -76,8 +76,12 @@ export interface TrackedFlight {
   data: FlightLookupResult | null;
   lastError: string | null;
   isLoading: boolean;
-  lastRefreshedAt: string | null; // ISO 8601
+  lastRefreshedAt: string | null; // ISO 8601 — last *successful* lookup, shown on the card
+  /** ISO 8601 — last lookup *attempt* regardless of outcome, used for tiered-refresh timing so a repeatedly-failing lookup doesn't retry on every tick. */
+  lastAttemptedAt: string | null;
   addedAt: string; // ISO 8601
+  /** True when this flight was added 2+ calendar days before departure and the user said they don't have paid API access that far out — see flightService's far-out gating. Real lookups are deferred until close enough to departure that a free-tier plan can plausibly return data. */
+  farOutDeferred: boolean;
 }
 
 export interface NormalizedFlightNumber {

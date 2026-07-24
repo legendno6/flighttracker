@@ -261,6 +261,18 @@ the app.
   (or has already departed), it refreshes at your selected interval as
   normal. This only throttles the *automatic* timer; "Refresh All" and each
   card's own Refresh button always run immediately.
+- **Far-out flights (2+ days before departure)**: free-tier flight-data plans
+  typically only return results for today and tomorrow, so adding a flight
+  further out than that prompts once per session: "Do you have paid access
+  that supports looking up flights further out?" Answering **yes** adds the
+  flight and looks it up immediately, same as any other flight, and isn't
+  asked again this session. Answering **no** adds the flight but skips the
+  lookup entirely — the card explains it'll start tracking automatically
+  about 36 hours before departure (once ~30h out, it briefly rechecks, then
+  hands off to the normal tiered cadence above) — and this answer is
+  remembered for the rest of the session too, so it won't ask again either
+  way until the page reloads. The per-card Refresh button always works
+  immediately regardless, if you want to check sooner anyway.
 - **Status inference guards against a stuck "In Flight"**: providers
   sometimes just never flip their own status field to "landed." If a flight
   is more than an hour past its estimated arrival with no live position data

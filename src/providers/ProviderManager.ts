@@ -12,7 +12,7 @@ import { OpenSkyProvider } from './OpenSkyProvider';
 import { GoogleProvider } from './GoogleProvider';
 import { MockProvider } from './MockProvider';
 import { SessionRequestGovernor } from '../services/sessionRequestGovernor';
-import { resolveDisplayStatus, statusCategory } from '../services/statusResolver';
+import { isDepartureImminentOrPast, resolveDisplayStatus, statusCategory } from '../services/statusResolver';
 import type { AppSettings } from '../types/settings';
 import type { FlightLookupResult } from '../types/flight';
 
@@ -177,6 +177,18 @@ export class ProviderManager {
    * live position is to actually attempt this enrichment. Gating strictly on
    * an already-"inflight" resolved status would mean this class of flight
    * never gets a chance to correct itself.
+   *
+   * But "Delayed" can also come from a scheduled-vs-estimated gap alone,
+   * regardless of how far off in the future that actually is (see
+   * `resolveDisplayStatus`) — e.g. a flight number that covers more than one
+   * same-day leg (an out-and-back turn) can get a schedule row that reads as
+   * "delayed" hours before its own departure window. Fetching a live match
+   * in that case would just find the *other* leg's aircraft under the same
+   * callsign, so this also requires departure to be at least imminent
+   * before spending a request chasing it (`isDepartureImminentOrPast`) —
+   * `resolveDisplayStatus` independently refuses to trust that result even
+   * if it's fetched anyway, but skipping the request here saves an API
+   * call too.
    */
   private async enrichWithLivePosition(
     result: FlightLookupResult,
@@ -191,6 +203,7 @@ export class ProviderManager {
     // enrichment silently never fires for exactly the flights the card shows as in-flight.
     const category = statusCategory(resolveDisplayStatus(result));
     if (category !== 'inflight' && category !== 'delayed') return;
+    if (category === 'delayed' && !isDepartureImminentOrPast(result)) return;
     if (!this.sessionGovernor.hasRemaining()) return;
 
     try {

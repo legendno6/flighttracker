@@ -7,6 +7,27 @@ const GATE_OPEN_WINDOW_MINUTES = 30;
 const DESCENDING_WINDOW_MINUTES = 20;
 /** No real commercial flight is still airborne this long past its estimated arrival — past this, assume landed rather than trusting a provider status field that just hasn't caught up. */
 const OVERDUE_LANDED_MINUTES = 60;
+/**
+ * How far before this leg's own scheduled/estimated departure a live ADS-B
+ * match is still trusted as evidence of *this* leg being airborne. Some
+ * flight numbers cover more than one same-day leg under one designator
+ * (e.g. an out-and-back turn), and OpenSky can only match by callsign — if
+ * the same callsign covers the whole day's rotation, a live match found
+ * while this leg's own departure is still hours away almost certainly
+ * belongs to a *different* leg of that rotation, not this one.
+ */
+const LIVE_TRUST_WINDOW_MINUTES = 60;
+
+/** Whether a live ADS-B match would currently be trusted as evidence this leg is airborne (see `LIVE_TRUST_WINDOW_MINUTES`) — exposed so callers deciding whether to *fetch* a live-position match (ProviderManager's OpenSky enrichment) can skip a request that would just be discarded as implausible anyway. */
+export function isDepartureImminentOrPast(
+  result: Pick<FlightLookupResult, 'departure'>,
+  now: Date = new Date(),
+): boolean {
+  const depScheduled = parseIso(result.departure.scheduled);
+  const depEstimated = parseIso(result.departure.estimated) ?? depScheduled;
+  const mins = minutesUntil(depEstimated, now);
+  return mins === null || mins <= LIVE_TRUST_WINDOW_MINUTES;
+}
 
 /**
  * Providers only give coarse states (scheduled/active/landed/cancelled/...).
@@ -35,8 +56,12 @@ export function resolveDisplayStatus(
   // "scheduled" long after real-world departure — a live ADS-B position (any
   // position, not just airborne ones — the on-ground sub-case is handled
   // just below) is direct evidence the aircraft is already in its active
-  // flight phase, and is trusted over a stale timestamp/status guess.
-  const isAirborne = !!depActual || result.status === 'In Flight' || live != null;
+  // flight phase, and is trusted over a stale timestamp/status guess... but
+  // only when this leg's own departure is at least imminent. Without that
+  // guard, a live match found while departure is still hours away (a
+  // same-day multi-leg flight number, where the callsign is airborne on a
+  // *different* leg of the day's rotation) gets wrongly attributed here.
+  const isAirborne = !!depActual || result.status === 'In Flight' || (live != null && isDepartureImminentOrPast(result, now));
 
   if (isAirborne) {
     // Already left the gate — somewhere in the air (or briefly on the ground pre-takeoff).

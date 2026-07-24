@@ -9,6 +9,7 @@ import { RefreshControls } from './components/RefreshControls';
 import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { isActivelyRefreshable } from './services/flightService';
 
 function AppShell() {
@@ -25,6 +26,7 @@ function AppShell() {
     sortMode,
     reorderFlights,
     resetToAutoSort,
+    farOutPrompt,
   } = useFlights(providerManager);
   const { lastUpdatedAt, nextRefreshAt, markManualRefresh } = useAutoRefresh(
     settings.refreshIntervalMinutes,
@@ -94,6 +96,18 @@ function AppShell() {
       />
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      <ConfirmDialog
+        open={farOutPrompt !== null}
+        title="Flight is more than a day out"
+        message="Free-tier flight-data plans typically only return results for today and tomorrow. Do you have paid access with one of your providers that supports looking up flights further out?"
+        cancelLabel="No, use free tier"
+        confirmLabel="Yes, I have paid access"
+        confirmVariant="primary"
+        defaultFocus="cancel"
+        onConfirm={() => farOutPrompt?.resolve(true)}
+        onCancel={() => farOutPrompt?.resolve(false)}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   finalizeLookupResult,
   isActivelyRefreshable,
   isDueForAutoRefresh,
+  isFarOutFlightDate,
   sortTrackedFlights,
 } from '../services/flightService';
 import { getNotificationPermission, notifyFlightChange } from '../services/notificationService';
@@ -40,6 +41,27 @@ export function useFlights(manager: ProviderManager) {
   const flightsRef = useRef(flights);
   flightsRef.current = flights;
 
+  // Whether the user has confirmed paid (beyond free-tier) API access for
+  // far-out flights this session — a ref (not just state) so addFlight reads
+  // the up-to-date answer immediately after the user responds, without
+  // waiting on a re-render. Resets on reload by design (session-only).
+  const farOutAccessRef = useRef<'unset' | 'paid' | 'free'>('unset');
+  const [farOutPrompt, setFarOutPrompt] = useState<{ resolve: (isPaid: boolean) => void } | null>(null);
+
+  const confirmFarOutAccess = useCallback((): Promise<'paid' | 'free'> => {
+    if (farOutAccessRef.current !== 'unset') return Promise.resolve(farOutAccessRef.current);
+    return new Promise<'paid' | 'free'>((resolve) => {
+      setFarOutPrompt({
+        resolve: (isPaid: boolean) => {
+          const result = isPaid ? 'paid' : 'free';
+          farOutAccessRef.current = result;
+          setFarOutPrompt(null);
+          resolve(result);
+        },
+      });
+    });
+  }, []);
+
   useEffect(() => {
     saveTrackedFlights(flights);
   }, [flights]);
@@ -52,7 +74,9 @@ export function useFlights(manager: ProviderManager) {
 
   const runLookup = useCallback(
     async (id: string, rawInput: string, flightDate: string, bypassCache: boolean) => {
-      setFlights((prev) => prev.map((f) => (f.id === id ? { ...f, isLoading: true } : f)));
+      setFlights((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, isLoading: true, lastAttemptedAt: new Date().toISOString() } : f)),
+      );
       try {
         const normalized = normalizeFlightInput(rawInput);
         const raw = await manager.lookupFlight({ normalized, flightDate }, { bypassCache });
@@ -97,12 +121,20 @@ export function useFlights(manager: ProviderManager) {
         return { ok: true, duplicateId: id };
       }
 
-      const pending = createPendingFlight(rawInput, flightDate);
+      let farOutDeferred = false;
+      if (isFarOutFlightDate(flightDate)) {
+        const access = await confirmFarOutAccess();
+        farOutDeferred = access === 'free';
+      }
+
+      const pending = createPendingFlight(rawInput, flightDate, farOutDeferred);
       setFlights((prev) => [...prev, pending]);
-      void runLookup(pending.id, pending.input, flightDate, true);
+      if (!farOutDeferred) {
+        void runLookup(pending.id, pending.input, flightDate, true);
+      }
       return { ok: true };
     },
-    [runLookup],
+    [runLookup, confirmFarOutAccess],
   );
 
   const removeFlight = useCallback((id: string) => {
@@ -181,5 +213,6 @@ export function useFlights(manager: ProviderManager) {
     sortMode: settings.flightSortMode,
     reorderFlights,
     resetToAutoSort,
+    farOutPrompt,
   };
 }

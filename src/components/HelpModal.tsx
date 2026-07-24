@@ -55,6 +55,13 @@ const HELP_TABS: HelpTab[] = [
           refreshing entirely.
         </p>
         <p className="mt-3">
+          Adding a flight more than a day out prompts once per session asking whether you have paid
+          API access that far ahead — free-tier plans usually only cover today and tomorrow.
+          Answering no still adds the flight, but skips lookups until about 36 hours before
+          departure to avoid wasting calls that would just fail; the card explains this and its
+          Refresh button still works immediately if you want to check sooner.
+        </p>
+        <p className="mt-3">
           For paid API plans, Settings → Advanced has an option to unlock 1-minute and 5-minute
           intervals — selecting either pops a warning first, since that cadence can exhaust a
           free-tier budget in minutes.
