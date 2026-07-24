@@ -151,7 +151,62 @@ deploy elsewhere, everything except those two proxy endpoints is still a
 static site (`npm run build` → `dist/`); you'll need to host
 `api/flightaware.ts` and `api/opensky.ts`'s logic (or ports of them) as
 whatever your platform calls a serverless/edge function, reachable at the
-same origin as the app, at paths `/api/flightaware` and `/api/opensky`.
+same origin as the app, at paths `/api/flightaware` and `/api/opensky` — or
+run `server/productionServer.ts`, a plain Node/Express server that does
+exactly this on a single port for any self-hosted target (see below for a
+Raspberry Pi walkthrough).
+
+### Deploying to a Raspberry Pi (LAN)
+
+`server/productionServer.ts` wraps the same `*Core.ts` proxy logic used by
+the Vite dev server and Vercel functions in a small Express app, serving
+both the built static site and the three `/api/*` proxy routes from one
+Node process on one port — no Vercel account needed. It binds to
+`0.0.0.0`, so once it's running it's reachable from any other device on
+the same network at `http://<pi-ip-address>:3000`.
+
+1. **Install Node.js 20+** on the Pi (Raspberry Pi OS's default `apt` Node
+   package is often too old). The [NodeSource setup
+   script](https://github.com/nodesource/distributions) or
+   [nvm](https://github.com/nvm-sh/nvm) both work fine on Raspberry Pi OS
+   (arm64).
+2. **Get the code onto the Pi** — `git clone` the repo (this branch,
+   `PSPiDeployment`, if that's what you're on) directly on the Pi, or copy
+   the working tree over some other way.
+3. **Install dependencies and configure secrets:**
+   ```bash
+   cd planestatus
+   npm install
+   cp .env.example .env
+   # edit .env: FLIGHTAWARE_API_KEY / OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET
+   # (AviationStack's key is entered in the app's own Settings UI once it's running, not here)
+   ```
+4. **Build and start it:**
+   ```bash
+   npm run build
+   npm run serve
+   ```
+   You should see `PlaneStatus serving on http://0.0.0.0:3000`. From
+   another device on the same Wi-Fi/network, find the Pi's LAN address
+   (`hostname -I` on the Pi) and open `http://<that-address>:3000` in a
+   browser. Change the port by setting `PORT=<number>` in `.env` before
+   starting.
+5. **Keep it running** — `npm run serve` only lasts as long as that
+   terminal session. To have it start on boot and restart if it ever
+   crashes, install the provided `systemd` unit:
+   ```bash
+   sudo cp deploy/planestatus.service /etc/systemd/system/planestatus.service
+   # edit WorkingDirectory/User inside it first if your setup differs from the defaults
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now planestatus
+   ```
+   Check on it with `systemctl status planestatus` or `journalctl -u
+   planestatus -f`. Re-run `npm run build` and `sudo systemctl restart
+   planestatus` after pulling any future code changes.
+
+This setup is LAN-only by design — nothing here opens a port on your
+router or exposes the Pi to the public internet. Every device that needs
+access just has to be on the same local network as the Pi.
 
 ## Getting started
 
@@ -204,8 +259,10 @@ src/
   storage/       localStorage persistence
   types/         Shared TypeScript types
   utils/         Formatting and misc utilities
-server/          FlightAware/OpenSky/aircraft-photo proxy core logic + Vite dev-server middleware
+server/          FlightAware/OpenSky/aircraft-photo proxy core logic, Vite dev-server middleware,
+                 and productionServer.ts (standalone Express server for self-hosted deploys)
 api/             Vercel serverless functions (production proxy endpoints)
+deploy/          systemd unit for running productionServer.ts as a service (e.g. on a Raspberry Pi)
 ```
 
 ## Broadcast mode

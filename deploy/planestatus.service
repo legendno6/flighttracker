@@ -1,0 +1,34 @@
+# systemd unit for running PlaneStatus's production server on a Raspberry Pi
+# (or any always-on Linux box), so it starts on boot and restarts if it
+# crashes. See the "Deploying to a Raspberry Pi" section of README.md for
+# full setup steps.
+#
+# Install:
+#   sudo cp deploy/planestatus.service /etc/systemd/system/planestatus.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now planestatus
+#
+# Check status / logs:
+#   systemctl status planestatus
+#   journalctl -u planestatus -f
+
+[Unit]
+Description=PlaneStatus flight tracker
+After=network.target
+
+[Service]
+# Adjust to wherever you cloned the repo and whichever user should own the process.
+WorkingDirectory=/home/pi/planestatus
+User=pi
+
+# Uses the repo's own npm script so it stays in sync if that script ever
+# changes — adjust the npm path if `which npm` gives something different.
+ExecStart=/usr/bin/npm run serve
+Restart=on-failure
+RestartSec=5
+
+# Optional: override the port (defaults to 3000) or set it in .env instead.
+# Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
