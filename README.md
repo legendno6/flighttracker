@@ -278,6 +278,19 @@ the app.
   is more than an hour past its estimated arrival with no live position data
   actively showing it still airborne, the dashboard treats it as landed
   rather than showing "In Flight" (and "0 min remaining") indefinitely.
+- **Live position sanity-checked against departure time**: a live ADS-B
+  match is only trusted as evidence a flight is airborne within about an
+  hour of its own scheduled/estimated departure. This matters for flight
+  numbers that cover more than one same-day leg (an out-and-back rotation
+  under one designator) — without this guard, a live match for the
+  *other* leg's aircraft could get wrongly attributed to the leg currently
+  on screen.
+- **FlightAware same-day multi-leg handling**: for flight numbers covering
+  a same-day out-and-back rotation, AeroAPI can return both legs as
+  separate entries for the same date — not necessarily in chronological
+  order. The app picks whichever leg is actually in progress (departed,
+  not yet arrived) over one that merely matches the date, falling back to
+  whichever leg's departure is closest to now if neither has departed yet.
 - **Caching**: lookups are cached for 60 seconds and de-duplicated, so
   rapid actions (e.g. clicking Refresh All right after Add) don't fire
   redundant requests.
@@ -287,10 +300,16 @@ the app.
   disabled in Settings", "FlightAware: authentication failed". No guessing
   which providers actually ran.
 - **Request budget tracking**: Settings shows how many AviationStack
-  requests you've used this calendar month against its free-tier cap.
-  FlightAware and OpenSky have no fixed quota tracked here (pay-per-use /
-  rate-limited rather than a monthly allowance) — the session request limit
-  below is the relevant guard for both instead.
+  requests you've used this calendar month against its free-tier cap,
+  persisted in `localStorage` and reset automatically each new calendar
+  month. AviationStack has no API to verify this count against their own
+  records (confirmed — their dashboard is the only source of truth), so
+  Settings also links to that dashboard and lets you manually correct the
+  local count if it drifts, e.g. from checking a different browser/origin
+  than where the real usage happened. FlightAware and OpenSky have no
+  fixed quota tracked here (pay-per-use / rate-limited rather than a
+  monthly allowance) — the session request limit below is the relevant
+  guard for both instead.
 - **Card reordering**: dashboard cards auto-sort by status priority (boarding
   > in flight > delayed > scheduled > landed > cancelled) by default. Drag
   any card's grip handle to switch to a custom order — a banner appears with
