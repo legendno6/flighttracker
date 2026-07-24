@@ -45,6 +45,9 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
   const { settings, updateSettings } = useSettings();
   const [aviationStackKey, setAviationStackKey] = useState(settings.credentials.aviationStackApiKey);
   const [notificationStatusMessage, setNotificationStatusMessage] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetOverrideValue, setBudgetOverrideValue] = useState('');
+  const [, forceRerender] = useState(0);
 
   useEffect(() => {
     if (open) {
@@ -94,6 +97,20 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
           : 'Notification permission was not granted.',
       );
     }
+  }
+
+  function handleStartEditingBudget() {
+    setBudgetOverrideValue(String(providerManager.aviationStack.budget.used));
+    setEditingBudget(true);
+  }
+
+  function handleSaveBudgetOverride() {
+    const parsed = Math.round(Number(budgetOverrideValue));
+    if (Number.isFinite(parsed)) {
+      providerManager.aviationStack.budget.setUsed(parsed);
+    }
+    setEditingBudget(false);
+    forceRerender((t) => t + 1);
   }
 
   function handleSave() {
@@ -171,8 +188,56 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
           />
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
             Free tier: {aviationStackBudget.limit} requests/month. Used this month: {aviationStackBudget.used}/
-            {aviationStackBudget.limit}.
+            {aviationStackBudget.limit}. AviationStack has no API to verify this against their own
+            records — cross-check at{' '}
+            <a
+              href="https://aviationstack.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-slate-600 dark:hover:text-slate-300"
+            >
+              their account dashboard
+            </a>
+            .
           </p>
+
+          {editingBudget ? (
+            <div className="mt-2 flex items-center gap-2">
+              <label htmlFor="budget-override" className="sr-only">
+                Correct used-this-month count
+              </label>
+              <input
+                id="budget-override"
+                type="number"
+                min={0}
+                value={budgetOverrideValue}
+                onChange={(e) => setBudgetOverrideValue(e.target.value)}
+                className="min-h-[36px] w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              <button
+                type="button"
+                onClick={handleSaveBudgetOverride}
+                className="min-h-[36px] rounded-md bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingBudget(false)}
+                className="min-h-[36px] rounded-md px-3 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartEditingBudget}
+              className="mt-1 text-xs font-semibold text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Correct this count
+            </button>
+          )}
 
           <div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
             <span className="font-semibold text-slate-600 dark:text-slate-300">

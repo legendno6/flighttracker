@@ -64,4 +64,9 @@ export class MonthlyRequestBudget {
     const record = readRecord(this.providerId);
     writeRecord(this.providerId, { ...record, count: record.count + 1 });
   }
+
+  /** Manually corrects this month's count — for when it's drifted from the provider's own dashboard (e.g. usage from a different browser/origin isn't visible to this one). */
+  setUsed(count: number): void {
+    writeRecord(this.providerId, { yearMonth: currentYearMonth(), count: Math.max(0, Math.round(count)) });
+  }
 }
