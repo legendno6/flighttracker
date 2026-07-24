@@ -53,6 +53,32 @@ interface FlightAwareErrorResponse {
   error?: { title?: string; detail?: string; reason?: string };
 }
 
+/**
+ * AeroAPI's `/flights/{ident}` can return more than one instance for the
+ * same ident on the same calendar date — some flight numbers cover a
+ * same-day out-and-back rotation (e.g. HXD→CLT later today *and* CLT→HXD
+ * already en route), both sharing one designator. Picking the array's
+ * first match (as this used to) is unreliable: confirmed directly against
+ * AeroAPI that the not-yet-departed leg can come back *before* the
+ * currently-airborne one. Prefer whichever leg is actually in progress
+ * right now (departed, not yet arrived); otherwise fall back to whichever
+ * leg's departure is chronologically closest to now, so an already-passed
+ * or far-future leg doesn't win over the one that's actually relevant.
+ */
+function pickMostRelevantFlight(flights: FlightAwareFlight[]): FlightAwareFlight {
+  const inProgress = flights.find((f) => f.actual_out && !f.actual_in);
+  if (inProgress) return inProgress;
+
+  const now = Date.now();
+  return flights.reduce((closest, candidate) => {
+    const candidateTime = Date.parse(candidate.estimated_out ?? candidate.scheduled_out ?? '');
+    if (Number.isNaN(candidateTime)) return closest;
+    const closestTime = Date.parse(closest.estimated_out ?? closest.scheduled_out ?? '');
+    if (Number.isNaN(closestTime)) return candidate;
+    return Math.abs(candidateTime - now) < Math.abs(closestTime - now) ? candidate : closest;
+  });
+}
+
 const STATUS_KEYWORD_MAP: Array<[RegExp, FlightStatus]> = [
   [/cancel/i, 'Cancelled'],
   [/divert/i, 'Diverted'],
@@ -148,8 +174,8 @@ export class FlightAwareProvider implements FlightProvider {
       throw new FlightNotFoundError();
     }
 
-    const flight =
-      body.flights.find((f) => (f.scheduled_out ?? '').slice(0, 10) === request.flightDate) ?? body.flights[0];
+    const todaysFlights = body.flights.filter((f) => (f.scheduled_out ?? '').slice(0, 10) === request.flightDate);
+    const flight = pickMostRelevantFlight(todaysFlights.length > 0 ? todaysFlights : body.flights);
 
     const departure = mapAirport(flight.origin, flight.gate_origin, flight.terminal_origin);
     departure.scheduled = flight.scheduled_out ?? null;
