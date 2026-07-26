@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config as loadDotenv } from 'dotenv';
 import express, { type Request, type Response } from 'express';
-import { fetchFlightAwareFlight } from './flightAwareCore';
+import { fetchFlightAwareFlight, fetchFlightAwareUsage } from './flightAwareCore';
 import { fetchOpenSkyFlightTrack, fetchOpenSkyPosition } from './openSkyCore';
 import { fetchAircraftPhoto } from './aircraftPhotoCore';
 import { fetchAviationStackFlight } from './aviationStackCore';
@@ -12,7 +12,7 @@ import { fetchAviationStackFlight } from './aviationStackCore';
 /**
  * Standalone production server for deployments that aren't Vercel (e.g. a
  * Raspberry Pi on the local network) — serves the built static app
- * (`npm run build`'s `dist/`) and the same four proxy endpoints the Vite
+ * (`npm run build`'s `dist/`) and the same five proxy endpoints the Vite
  * dev server and Vercel functions expose, all from one Node process on one
  * port. The actual proxy logic lives in the `*Core.ts` files and is shared
  * unchanged across all three deployment targets; this file is just a third
@@ -52,6 +52,11 @@ app.get('/api/flightaware', async (req: Request, res: Response) => {
     Object.entries(req.query).flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : [])),
   );
   const { status, body } = await fetchFlightAwareFlight(ident, searchParams);
+  res.status(status).setHeader('Content-Type', 'application/json').send(body);
+});
+
+app.get('/api/flightaware-usage', async (_req: Request, res: Response) => {
+  const { status, body } = await fetchFlightAwareUsage();
   res.status(status).setHeader('Content-Type', 'application/json').send(body);
 });
 

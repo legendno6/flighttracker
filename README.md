@@ -177,7 +177,7 @@ Raspberry Pi walkthrough).
 
 `server/productionServer.ts` wraps the same `*Core.ts` proxy logic used by
 the Vite dev server and Vercel functions in a small Express app, serving
-both the built static site and the four `/api/*` proxy routes from one
+both the built static site and the five `/api/*` proxy routes from one
 Node process on one port — no Vercel account needed. It binds to
 `0.0.0.0`, so once it's running it's reachable from any other device on
 the same network at `http://<pi-ip-address>:3000`.
