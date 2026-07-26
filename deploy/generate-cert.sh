@@ -24,11 +24,21 @@ HOST="$1"
 CERT_DIR="$(dirname "${BASH_SOURCE[0]}")/certs"
 mkdir -p "$CERT_DIR"
 
+# SAN entries need the right type tag — an IPv4 address has to be "IP:",
+# anything else (a hostname like pi3b-1.local) has to be "DNS:" or openssl
+# rejects the whole -addext outright with "bad ip address" (confirmed by
+# testing) and generates no cert at all.
+if [[ "$HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  SAN="IP:$HOST,DNS:localhost"
+else
+  SAN="DNS:$HOST,DNS:localhost"
+fi
+
 openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
   -keyout "$CERT_DIR/key.pem" \
   -out "$CERT_DIR/cert.pem" \
   -subj "/CN=$HOST" \
-  -addext "subjectAltName=IP:$HOST,DNS:localhost"
+  -addext "subjectAltName=$SAN"
 
 echo "Wrote $CERT_DIR/cert.pem and $CERT_DIR/key.pem for $HOST."
 echo "Restart the service to pick it up: sudo systemctl restart planestatus"
