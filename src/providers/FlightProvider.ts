@@ -4,6 +4,8 @@ import type { NormalizedFlightNumber } from '../types/flight';
 export interface FlightLookupRequest {
   normalized: NormalizedFlightNumber;
   flightDate: string; // yyyy-mm-dd
+  /** Pins the lookup to one specific same-day leg (a `legKey` from a previous `FlightLookupResult.alternateLegs`), for providers that can return multiple instances of one flight number per date. Providers without that ambiguity simply ignore it. */
+  legKey?: string;
 }
 
 /** Thrown when a provider understood the request but has no data for it. */

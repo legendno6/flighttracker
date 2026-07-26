@@ -10,6 +10,7 @@ import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { LegChoiceModal } from './components/LegChoiceModal';
 import { isActivelyRefreshable } from './services/flightService';
 
 function AppShell() {
@@ -28,6 +29,9 @@ function AppShell() {
     reorderFlights,
     resetToAutoSort,
     farOutPrompt,
+    legChoicePrompt,
+    resolveLegChoice,
+    cancelLegChoice,
   } = useFlights(providerManager);
   const { lastUpdatedAt, nextRefreshAt, markManualRefresh } = useAutoRefresh(
     settings.refreshIntervalMinutes,
@@ -110,6 +114,8 @@ function AppShell() {
         onConfirm={() => farOutPrompt?.resolve(true)}
         onCancel={() => farOutPrompt?.resolve(false)}
       />
+
+      <LegChoiceModal prompt={legChoicePrompt} onConfirm={resolveLegChoice} onCancel={cancelLegChoice} />
     </div>
   );
 }

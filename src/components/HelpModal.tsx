@@ -34,6 +34,11 @@ const HELP_TABS: HelpTab[] = [
           Adding the same flight number and date twice just highlights the existing card instead of
           creating a duplicate.
         </p>
+        <p className="mt-3">
+          Some flight numbers cover a same-day out-and-back rotation — the same number used for two
+          different legs on one date. When that happens, you'll be asked which leg(s) to track: pick
+          one, several, or all, and each becomes its own card.
+        </p>
       </>
     ),
   },

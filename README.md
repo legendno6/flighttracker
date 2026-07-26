@@ -275,6 +275,15 @@ the app.
   a flight you're just keeping visible for reference. The card's own
   Refresh button still works immediately regardless, for an explicit
   one-off check.
+- **Same-day multi-leg picker**: some flight numbers cover a same-day
+  out-and-back rotation — one designator flying two different legs on the
+  same date. AviationStack and FlightAware both surface this in their raw
+  responses; instead of silently auto-picking one, the app detects when the
+  legs found are genuinely distinct (different route/time) and lets you
+  choose which to track — one, several, or all, each becoming its own card,
+  individually pinned so later refreshes don't drift to a different leg.
+  Tracking an extra leg beyond the one already fetched spends one more API
+  request, since its detail was never retrieved.
 - **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
   departure only every 4 hours, and flights 12–24h out only every hour,
   regardless of the interval selected above — gates and terminals essentially
