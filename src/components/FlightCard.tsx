@@ -104,9 +104,9 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
           </div>
         </div>
 
-        {data && (
+        {data && data.status !== 'Landed' && data.status !== 'Cancelled' && (
           <label
-            className="flex shrink-0 cursor-pointer items-center gap-1.5"
+            className="flex shrink-0 cursor-pointer flex-col items-center gap-0.5"
             title={flight.autoRefreshEnabled ? 'Auto-refresh on — click to turn off' : 'Auto-refresh off — click to turn on'}
           >
             <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
@@ -120,6 +120,7 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
               <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-500 dark:bg-slate-700" />
               <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
             </span>
+            <span className="text-[10px] leading-none text-slate-400 dark:text-slate-500">Auto-refresh</span>
           </label>
         )}
       </header>

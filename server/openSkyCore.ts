@@ -215,7 +215,6 @@ async function fetchAirportFlights(
   if (response.status === 404) return []; // OpenSky 404s when there's simply no data for the window
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    // eslint-disable-next-line no-console
     console.error(`[openSkyCore] ${kind} request failed`, response.status, detail, `${FLIGHTS_URL}/${kind}?${params.toString()}`);
     throw new Error(`flights_http_${response.status}`);
   }
