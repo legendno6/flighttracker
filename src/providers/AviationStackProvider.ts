@@ -6,7 +6,7 @@ import {
   type FlightLookupRequest,
   type FlightProvider,
 } from './FlightProvider';
-import type { AirportInfo, FlightLookupResult, FlightStatus } from '../types/flight';
+import type { AirportInfo, FlightLegSummary, FlightLookupResult, FlightStatus } from '../types/flight';
 import { MonthlyRequestBudget } from '../services/requestBudget';
 import { reinterpretAsLocalWallClock, todayIsoDate } from '../utils/dateTimeUtils';
 import { findAirportTimezone } from '../data/airportTimezones';
@@ -73,6 +73,23 @@ const STATUS_MAP: Record<string, FlightStatus> = {
   incident: 'Unknown',
   diverted: 'Diverted',
 };
+
+/** Stable identity for a specific leg — route + scheduled departure, not array position. */
+function legKeyFor(flight: AviationStackFlightPayload): string {
+  const depCode = flight.departure?.iata ?? flight.departure?.icao ?? '';
+  const arrCode = flight.arrival?.iata ?? flight.arrival?.icao ?? '';
+  return `${depCode}-${arrCode}-${flight.departure?.scheduled ?? ''}`;
+}
+
+function legSummaryFor(flight: AviationStackFlightPayload): FlightLegSummary {
+  return {
+    legKey: legKeyFor(flight),
+    departureCode: flight.departure?.iata ?? flight.departure?.icao ?? null,
+    arrivalCode: flight.arrival?.iata ?? flight.arrival?.icao ?? null,
+    scheduledDeparture: flight.departure?.scheduled ?? null,
+    status: STATUS_MAP[flight.flight_status] ?? 'Unknown',
+  };
+}
 
 function mapAirport(payload: AviationStackAirportPayload | undefined): AirportInfo {
   const code = payload?.iata ?? payload?.icao ?? null;
@@ -205,9 +222,38 @@ export class AviationStackProvider implements FlightProvider {
     }
 
     // Without flight_date, AviationStack can return more than one recent
-    // occurrence of this flight number — prefer the one matching the
-    // requested date if present, rather than assuming data[0] is the right day.
-    const flight = body.data.find((f) => f.flight_date === request.flightDate) ?? body.data[0];
+    // occurrence of this flight number — prefer entries matching the
+    // requested date if any are present, rather than assuming data[0] is
+    // the right day.
+    const matchingDate = body.data.filter((f) => f.flight_date === request.flightDate);
+    const pool = matchingDate.length > 0 ? matchingDate : body.data;
+
+    // Same-day out-and-back rotations can leave 2+ genuinely distinct legs
+    // (different route/time) sharing this flight number — dedupe so
+    // near-identical/duplicate records don't count as ambiguous.
+    const distinctByKey = new Map<string, AviationStackFlightPayload>();
+    for (const f of pool) {
+      const key = legKeyFor(f);
+      if (!distinctByKey.has(key)) distinctByKey.set(key, f);
+    }
+    const distinctLegs = [...distinctByKey.values()];
+
+    let flight: AviationStackFlightPayload;
+    let legKey: string | undefined;
+    let alternateLegs: FlightLegSummary[] | undefined;
+
+    if (request.legKey) {
+      // A specific leg was pinned by an earlier disambiguation — keep
+      // selecting it. If it's no longer present (an unexpected schedule
+      // change), fall back to the default pick rather than erroring.
+      flight = distinctByKey.get(request.legKey) ?? pool[0];
+    } else if (distinctLegs.length > 1) {
+      flight = distinctLegs[0];
+      legKey = legKeyFor(flight);
+      alternateLegs = distinctLegs.map(legSummaryFor);
+    } else {
+      flight = pool[0];
+    }
     const status = STATUS_MAP[flight.flight_status] ?? 'Unknown';
 
     const result: FlightLookupResult = {
@@ -245,6 +291,8 @@ export class AviationStackProvider implements FlightProvider {
         : null,
       providerName: this.displayName,
       fetchedAt: new Date().toISOString(),
+      legKey,
+      alternateLegs,
     };
 
     return result;

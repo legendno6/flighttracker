@@ -100,8 +100,8 @@ export function splitFlightInputs(raw: string): string[] {
   return tokens;
 }
 
-/** Canonical display identifier, preferring ICAO since that's what most trackers key on. */
-export function canonicalFlightId(normalized: NormalizedFlightNumber, flightDate: string): string {
+/** Canonical display identifier, preferring ICAO since that's what most trackers key on. `legKey` disambiguates a specific leg when a flight number covers more than one same-day instance (see `FlightLookupResult.alternateLegs`) — omitted, this matches the plain flight-number+date id used everywhere else. */
+export function canonicalFlightId(normalized: NormalizedFlightNumber, flightDate: string, legKey?: string): string {
   const ident = normalized.icaoFlightNumber ?? normalized.iataFlightNumber ?? normalized.raw.replace(/\s+/g, '').toUpperCase();
-  return `${ident}-${flightDate}`;
+  return legKey ? `${ident}-${flightDate}-${legKey}` : `${ident}-${flightDate}`;
 }

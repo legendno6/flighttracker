@@ -10,9 +10,9 @@ import { canonicalFlightId, normalizeFlightInput } from './flightNormalizer';
 import { resolveDisplayStatus, statusSortPriority } from './statusResolver';
 import { minutesBetween, parseIso, minutesUntil } from '../utils/dateTimeUtils';
 
-export function createPendingFlight(rawInput: string, flightDate: string, farOutDeferred = false): TrackedFlight {
+export function createPendingFlight(rawInput: string, flightDate: string, farOutDeferred = false, legKey?: string): TrackedFlight {
   const normalized = normalizeFlightInput(rawInput);
-  const id = canonicalFlightId(normalized, flightDate);
+  const id = canonicalFlightId(normalized, flightDate, legKey);
   const displayInput = normalized.icaoFlightNumber ?? normalized.iataFlightNumber ?? normalized.raw;
 
   return {
@@ -28,6 +28,7 @@ export function createPendingFlight(rawInput: string, flightDate: string, farOut
     addedAt: new Date().toISOString(),
     farOutDeferred,
     autoRefreshEnabled: true,
+    legKey,
   };
 }
 

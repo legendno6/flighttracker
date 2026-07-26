@@ -49,6 +49,16 @@ export interface LivePosition {
   observedAt: string; // ISO 8601
 }
 
+/** One candidate leg among possibly several sharing one flight number + date (e.g. a same-day out-and-back rotation). See `FlightLookupResult.alternateLegs`. */
+export interface FlightLegSummary {
+  /** Stable identity for this specific leg across repeated lookups — built from route + scheduled departure, not array position (a provider's own response order isn't guaranteed stable). */
+  legKey: string;
+  departureCode: string | null;
+  arrivalCode: string | null;
+  scheduledDeparture: string | null; // ISO 8601
+  status: FlightStatus;
+}
+
 export interface FlightLookupResult {
   airline: string | null;
   airlineIata: string | null;
@@ -66,6 +76,10 @@ export interface FlightLookupResult {
   /** Name of the provider that produced this result, for diagnostics/UI. */
   providerName: string;
   fetchedAt: string; // ISO 8601
+  /** Which leg this result represents, set only alongside `alternateLegs` (see below). Undefined in the ordinary single-leg case. */
+  legKey?: string;
+  /** Set only when the provider's raw response contained 2+ genuinely distinct same-day legs sharing this flight number (e.g. an out-and-back rotation) on an undisambiguated request (no `legKey` on the request). Includes the leg actually returned as this result, plus any others — lets the UI offer the user a choice at add-time. Undefined in the ordinary single-leg case. */
+  alternateLegs?: FlightLegSummary[];
 }
 
 /** A flight the user is tracking, combining input + last known lookup result. */
@@ -84,6 +98,8 @@ export interface TrackedFlight {
   farOutDeferred: boolean;
   /** Per-card opt-out of automatic refresh (timer tick + "Refresh All") — the card's own Refresh button still works regardless. Defaults true. */
   autoRefreshEnabled: boolean;
+  /** Pins this card to one specific leg among several that share its flight number + date (set after resolving the multi-leg picker) — every refresh re-requests this exact leg instead of letting the provider auto-pick "most relevant." Undefined in the ordinary single-leg case. */
+  legKey?: string;
 }
 
 export interface NormalizedFlightNumber {

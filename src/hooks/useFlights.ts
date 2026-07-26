@@ -1,6 +1,6 @@
 import { arrayMove } from '@dnd-kit/sortable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { TrackedFlight } from '../types/flight';
+import type { FlightLegSummary, TrackedFlight } from '../types/flight';
 import { loadFlightOrder, loadTrackedFlights, saveFlightOrder, saveTrackedFlights } from '../storage/localStorage';
 import { canonicalFlightId, InvalidFlightInputError, normalizeFlightInput } from '../services/flightNormalizer';
 import {
@@ -25,6 +25,16 @@ export interface AddFlightResult {
   error?: string;
 }
 
+/** Offered to the user right after adding a flight whose number covers 2+ genuinely distinct same-day legs (e.g. an out-and-back rotation) — see `FlightLookupResult.alternateLegs`. */
+export interface LegChoicePrompt {
+  /** The pending TrackedFlight already showing the auto-picked default leg's data. */
+  flightId: string;
+  rawInput: string;
+  flightDate: string;
+  defaultLegKey: string;
+  candidates: FlightLegSummary[];
+}
+
 /**
  * `manager` must be the single app-wide ProviderManager instance from
  * App.tsx's own `useProviderManager()` call, passed in rather than fetched
@@ -38,6 +48,7 @@ export function useFlights(manager: ProviderManager) {
   const [flights, setFlights] = useState<TrackedFlight[]>(() => loadTrackedFlights());
   const [manualOrder, setManualOrder] = useState<string[]>(() => loadFlightOrder());
   const [duplicateFlashId, setDuplicateFlashId] = useState<string | null>(null);
+  const [legChoicePrompt, setLegChoicePrompt] = useState<LegChoicePrompt | null>(null);
   const flightsRef = useRef(flights);
   flightsRef.current = flights;
 
@@ -73,13 +84,19 @@ export function useFlights(manager: ProviderManager) {
   }, [manualOrder, flights]);
 
   const runLookup = useCallback(
-    async (id: string, rawInput: string, flightDate: string, bypassCache: boolean) => {
+    async (
+      id: string,
+      rawInput: string,
+      flightDate: string,
+      bypassCache: boolean,
+      options?: { legKey?: string; offerLegChoice?: boolean },
+    ) => {
       setFlights((prev) =>
         prev.map((f) => (f.id === id ? { ...f, isLoading: true, lastAttemptedAt: new Date().toISOString() } : f)),
       );
       try {
         const normalized = normalizeFlightInput(rawInput);
-        const raw = await manager.lookupFlight({ normalized, flightDate }, { bypassCache });
+        const raw = await manager.lookupFlight({ normalized, flightDate, legKey: options?.legKey }, { bypassCache });
         const result = finalizeLookupResult(raw);
         setFlights((prev) =>
           prev.map((f) => {
@@ -93,6 +110,15 @@ export function useFlights(manager: ProviderManager) {
             return { ...f, data: result, isLoading: false, lastError: null, lastRefreshedAt: new Date().toISOString() };
           }),
         );
+        if (options?.offerLegChoice && result.legKey && result.alternateLegs && result.alternateLegs.length > 1) {
+          setLegChoicePrompt({
+            flightId: id,
+            rawInput,
+            flightDate,
+            defaultLegKey: result.legKey,
+            candidates: result.alternateLegs,
+          });
+        }
       } catch (err) {
         setFlights((prev) =>
           prev.map((f) =>
@@ -130,7 +156,7 @@ export function useFlights(manager: ProviderManager) {
       const pending = createPendingFlight(rawInput, flightDate, farOutDeferred);
       setFlights((prev) => [...prev, pending]);
       if (!farOutDeferred) {
-        void runLookup(pending.id, pending.input, flightDate, true);
+        void runLookup(pending.id, pending.input, flightDate, true, { offerLegChoice: true });
       }
       return { ok: true };
     },
@@ -149,7 +175,7 @@ export function useFlights(manager: ProviderManager) {
     (id: string) => {
       const flight = flightsRef.current.find((f) => f.id === id);
       if (!flight) return;
-      void runLookup(flight.id, flight.input, flight.flightDate, true);
+      void runLookup(flight.id, flight.input, flight.flightDate, true, { legKey: flight.legKey });
     },
     [runLookup],
   );
@@ -166,10 +192,52 @@ export function useFlights(manager: ProviderManager) {
       for (const flight of flightsRef.current) {
         if (onlyActive && !isActivelyRefreshable(flight)) continue;
         if (respectTier && !isDueForAutoRefresh(flight, settings.refreshIntervalMinutes, now)) continue;
-        void runLookup(flight.id, flight.input, flight.flightDate, true);
+        void runLookup(flight.id, flight.input, flight.flightDate, true, { legKey: flight.legKey });
       }
     },
     [runLookup, settings.refreshIntervalMinutes],
+  );
+
+  const cancelLegChoice = useCallback(() => {
+    setLegChoicePrompt(null);
+  }, []);
+
+  /**
+   * Reconciles the user's leg picker choice. If the auto-picked default leg
+   * is among the selections, the existing pending card (which already holds
+   * that leg's full data — no extra fetch needed) is kept and pinned to it;
+   * otherwise that card is discarded since it shows a leg the user doesn't
+   * want. Every other selected leg gets a brand-new card and a fresh
+   * `legKey`-scoped fetch, since only the default leg's full detail was
+   * ever actually retrieved.
+   */
+  const resolveLegChoice = useCallback(
+    (selectedLegKeys: string[]) => {
+      const prompt = legChoicePrompt;
+      if (!prompt) return;
+
+      const keepOriginal = selectedLegKeys.includes(prompt.defaultLegKey);
+      setFlights((prev) => {
+        if (keepOriginal) {
+          return prev.map((f) =>
+            f.id === prompt.flightId
+              ? { ...f, legKey: prompt.defaultLegKey, id: `${prompt.flightId}-${prompt.defaultLegKey}` }
+              : f,
+          );
+        }
+        return prev.filter((f) => f.id !== prompt.flightId);
+      });
+
+      for (const legKey of selectedLegKeys) {
+        if (legKey === prompt.defaultLegKey) continue;
+        const pending = createPendingFlight(prompt.rawInput, prompt.flightDate, false, legKey);
+        setFlights((prev) => [...prev, pending]);
+        void runLookup(pending.id, pending.input, prompt.flightDate, true, { legKey });
+      }
+
+      setLegChoicePrompt(null);
+    },
+    [legChoicePrompt, runLookup],
   );
 
   const displayedFlights = useMemo(() => {
@@ -219,5 +287,8 @@ export function useFlights(manager: ProviderManager) {
     reorderFlights,
     resetToAutoSort,
     farOutPrompt,
+    legChoicePrompt,
+    resolveLegChoice,
+    cancelLegChoice,
   };
 }

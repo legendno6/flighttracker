@@ -6,7 +6,7 @@ import {
   type FlightLookupRequest,
   type FlightProvider,
 } from './FlightProvider';
-import type { AirportInfo, FlightLookupResult, FlightStatus } from '../types/flight';
+import type { AirportInfo, FlightLegSummary, FlightLookupResult, FlightStatus } from '../types/flight';
 import { findAirportTimezone } from '../data/airportTimezones';
 
 // Same-origin proxy — see server/flightAwareCore.ts for why this can't call
@@ -77,6 +77,23 @@ function pickMostRelevantFlight(flights: FlightAwareFlight[]): FlightAwareFlight
     if (Number.isNaN(closestTime)) return candidate;
     return Math.abs(candidateTime - now) < Math.abs(closestTime - now) ? candidate : closest;
   });
+}
+
+/** Stable identity for a specific leg — route + scheduled departure, not array position (AeroAPI's own response order isn't guaranteed stable). */
+function legKeyFor(flight: FlightAwareFlight): string {
+  const originCode = flight.origin?.code_iata ?? flight.origin?.code ?? '';
+  const destCode = flight.destination?.code_iata ?? flight.destination?.code ?? '';
+  return `${originCode}-${destCode}-${flight.scheduled_out ?? ''}`;
+}
+
+function legSummaryFor(flight: FlightAwareFlight): FlightLegSummary {
+  return {
+    legKey: legKeyFor(flight),
+    departureCode: flight.origin?.code_iata ?? flight.origin?.code ?? null,
+    arrivalCode: flight.destination?.code_iata ?? flight.destination?.code ?? null,
+    scheduledDeparture: flight.scheduled_out ?? null,
+    status: mapStatus(flight),
+  };
 }
 
 const STATUS_KEYWORD_MAP: Array<[RegExp, FlightStatus]> = [
@@ -175,7 +192,35 @@ export class FlightAwareProvider implements FlightProvider {
     }
 
     const todaysFlights = body.flights.filter((f) => (f.scheduled_out ?? '').slice(0, 10) === request.flightDate);
-    const flight = pickMostRelevantFlight(todaysFlights.length > 0 ? todaysFlights : body.flights);
+    const pool = todaysFlights.length > 0 ? todaysFlights : body.flights;
+
+    // AeroAPI can return more than one instance for the same ident on the
+    // same date (see pickMostRelevantFlight's doc comment) — dedupe by
+    // route+scheduled-time so near-identical/duplicate records don't count
+    // as "genuinely distinct" legs.
+    const distinctByKey = new Map<string, FlightAwareFlight>();
+    for (const f of pool) {
+      const key = legKeyFor(f);
+      if (!distinctByKey.has(key)) distinctByKey.set(key, f);
+    }
+    const distinctLegs = [...distinctByKey.values()];
+
+    let flight: FlightAwareFlight;
+    let legKey: string | undefined;
+    let alternateLegs: FlightLegSummary[] | undefined;
+
+    if (request.legKey) {
+      // A specific leg was pinned by an earlier disambiguation — keep
+      // selecting it. If it's no longer present (an unexpected schedule
+      // change), fall back to the normal heuristic rather than erroring.
+      flight = distinctByKey.get(request.legKey) ?? pickMostRelevantFlight(pool);
+    } else if (distinctLegs.length > 1) {
+      flight = pickMostRelevantFlight(distinctLegs);
+      legKey = legKeyFor(flight);
+      alternateLegs = distinctLegs.map(legSummaryFor);
+    } else {
+      flight = pickMostRelevantFlight(pool);
+    }
 
     const departure = mapAirport(flight.origin, flight.gate_origin, flight.terminal_origin);
     departure.scheduled = flight.scheduled_out ?? null;
@@ -203,6 +248,8 @@ export class FlightAwareProvider implements FlightProvider {
       live: null,
       providerName: this.displayName,
       fetchedAt: new Date().toISOString(),
+      legKey,
+      alternateLegs,
     };
   }
 }

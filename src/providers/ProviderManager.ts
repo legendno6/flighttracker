@@ -83,7 +83,10 @@ export class ProviderManager {
       request.normalized.icaoFlightNumber ??
       request.normalized.iataFlightNumber ??
       request.normalized.raw;
-    return `${ident}-${request.flightDate}`;
+    // legKey must be part of the key — otherwise two sibling cards pinned to
+    // different legs of the same flight number + date would collide in the
+    // cache/in-flight-dedup map and leak each other's data.
+    return request.legKey ? `${ident}-${request.flightDate}-${request.legKey}` : `${ident}-${request.flightDate}`;
   }
 
   /** True if a cached (fresh, <1 min old) result exists for this request. */
