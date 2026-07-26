@@ -21,6 +21,7 @@ interface DashboardProps {
   sortMode: FlightSortMode;
   onRefresh: (id: string) => void;
   onRemove: (id: string) => void;
+  onToggleAutoRefresh: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
   onResetToAutoSort: () => void;
 }
@@ -31,6 +32,7 @@ export function Dashboard({
   sortMode,
   onRefresh,
   onRemove,
+  onToggleAutoRefresh,
   onReorder,
   onResetToAutoSort,
 }: DashboardProps) {
@@ -71,6 +73,7 @@ export function Dashboard({
                 flight={flight}
                 onRefresh={onRefresh}
                 onRemove={onRemove}
+                onToggleAutoRefresh={onToggleAutoRefresh}
                 isDuplicateFlash={duplicateFlashId === flight.id}
               />
             ))}
@@ -85,10 +88,11 @@ interface SortableFlightCardProps {
   flight: TrackedFlight;
   onRefresh: (id: string) => void;
   onRemove: (id: string) => void;
+  onToggleAutoRefresh: (id: string) => void;
   isDuplicateFlash: boolean;
 }
 
-function SortableFlightCard({ flight, onRefresh, onRemove, isDuplicateFlash }: SortableFlightCardProps) {
+function SortableFlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, isDuplicateFlash }: SortableFlightCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: flight.id });
 
   const style = {
@@ -102,6 +106,7 @@ function SortableFlightCard({ flight, onRefresh, onRemove, isDuplicateFlash }: S
         flight={flight}
         onRefresh={onRefresh}
         onRemove={onRemove}
+        onToggleAutoRefresh={onToggleAutoRefresh}
         isDuplicateFlash={isDuplicateFlash}
         dragHandleProps={{ attributes, listeners }}
       />

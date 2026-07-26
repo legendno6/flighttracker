@@ -82,6 +82,8 @@ export interface TrackedFlight {
   addedAt: string; // ISO 8601
   /** True when this flight was added 2+ calendar days before departure and the user said they don't have paid API access that far out — see flightService's far-out gating. Real lookups are deferred until close enough to departure that a free-tier plan can plausibly return data. */
   farOutDeferred: boolean;
+  /** Per-card opt-out of automatic refresh (timer tick + "Refresh All") — the card's own Refresh button still works regardless. Defaults true. */
+  autoRefreshEnabled: boolean;
 }
 
 export interface NormalizedFlightNumber {

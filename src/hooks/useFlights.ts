@@ -154,6 +154,10 @@ export function useFlights(manager: ProviderManager) {
     [runLookup],
   );
 
+  const toggleAutoRefresh = useCallback((id: string) => {
+    setFlights((prev) => prev.map((f) => (f.id === id ? { ...f, autoRefreshEnabled: !f.autoRefreshEnabled } : f)));
+  }, []);
+
   const refreshAll = useCallback(
     (options?: { onlyActive?: boolean; respectTier?: boolean }) => {
       const onlyActive = options?.onlyActive ?? true;
@@ -209,6 +213,7 @@ export function useFlights(manager: ProviderManager) {
     clearAll,
     refreshFlight,
     refreshAll,
+    toggleAutoRefresh,
     duplicateFlashId,
     sortMode: settings.flightSortMode,
     reorderFlights,
