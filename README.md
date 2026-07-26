@@ -15,7 +15,14 @@ rewriting the UI. The built-in chain, tried in order until one succeeds:
 
 1. **[AviationStack](https://aviationstack.com/)** — airline, aircraft,
    schedule, gate/terminal/baggage, and status. Free tier: 100 requests/month,
-   HTTP-only. Key entered in Settings, called directly from the browser.
+   HTTP-only. Key entered in Settings. **Requires the small server-side proxy
+   described below** — AviationStack's free tier has no HTTPS option at all,
+   and a plain `http://` request made directly from an HTTPS-served page gets
+   silently blocked by the browser as "mixed content" (confirmed by testing:
+   the request never leaves the browser, and the local usage counter never
+   increments since nothing ever comes back). Routing it through this app's
+   own same-origin proxy sidesteps that regardless of which protocol the page
+   itself uses.
 2. **[FlightAware AeroAPI (Personal)](https://www.flightaware.com/commercial/aeroapi/)**
    — very detailed schedule/gate/terminal/baggage/status data, plus aircraft
    registration. Pay-per-use (no fixed monthly quota), rate-limited to 10
@@ -81,43 +88,51 @@ no-CORS problem as calling Google directly — same wall, different vendor.
 Open the app and click the gear icon (top right) to open **Settings**.
 
 - **AviationStack**: paste the key directly into the field there. Stored
-  only in this browser's `localStorage` — sent directly from your browser to
-  AviationStack's API, never through any server of ours.
+  only in this browser's `localStorage`, and still supplied by the browser on
+  every lookup — but now forwarded through this app's own same-origin proxy
+  (details below) rather than sent directly to AviationStack, since a direct
+  `http://` call from an HTTPS-served page gets silently blocked. The proxy
+  doesn't store the key server-side; it only relays it over the one hop
+  (proxy → AviationStack) that has to stay HTTP regardless.
 - **FlightAware** and **OpenSky**: no fields in the UI for either — both are
   called through this app's own server-side proxy (details below), and their
   credentials are set as environment variables instead, so they never touch
   browser network traffic at all. This matters more for FlightAware since
   AeroAPI is billed per request.
 
-## The proxy (FlightAware + OpenSky + aircraft photos)
+## The proxy (AviationStack + FlightAware + OpenSky + aircraft photos)
 
-Neither AeroAPI nor OpenSky's REST API can be called from a browser (no CORS
-support on either — confirmed by testing, not assumed), so this project
-includes a minimal same-origin proxy for each. planespotters.net's photo API
-(used for the aircraft photo shown on in-flight cards) *is* CORS-enabled,
-but it requires every request to send a descriptive `User-Agent` identifying
-the calling app, and browsers won't let client-side JS override that header
-— so it's proxied the same way, even though the CORS problem itself doesn't
-apply.
+Four different reasons funnel through the same same-origin-proxy pattern
+here: AeroAPI and OpenSky's REST API send no CORS headers at all (confirmed
+by testing, not assumed) — a browser can never call either directly, no
+matter how the client code is written. AviationStack's free tier is
+HTTP-only, which a browser silently blocks as "mixed content" the moment the
+page itself is HTTPS. planespotters.net's photo API (used for the aircraft
+photo shown on in-flight cards) *is* CORS-enabled, but requires every
+request to send a descriptive `User-Agent` identifying the calling app, and
+browsers won't let client-side JS override that header. Different problems,
+same fix — a minimal same-origin proxy for each.
 
-- `server/flightAwareCore.ts` / `server/openSkyCore.ts` /
-  `server/aircraftPhotoCore.ts` — the actual forwarding logic for each
-  provider. The aircraft-photo one needs no API key, just the hardcoded
-  identifying `User-Agent` (confirmed necessary by testing: a generic
-  `curl`-style User-Agent gets a `403`, an identifying one gets a normal
-  `200`).
-- `server/viteFlightAwareProxyPlugin.ts` / `server/viteOpenSkyProxyPlugin.ts`
+- `server/aviationStackCore.ts` / `server/flightAwareCore.ts` /
+  `server/openSkyCore.ts` / `server/aircraftPhotoCore.ts` — the actual
+  forwarding logic for each provider. The aircraft-photo one needs no API
+  key, just the hardcoded identifying `User-Agent` (confirmed necessary by
+  testing: a generic `curl`-style User-Agent gets a `403`, an identifying one
+  gets a normal `200`).
+- `server/viteAviationStackProxyPlugin.ts` /
+  `server/viteFlightAwareProxyPlugin.ts` / `server/viteOpenSkyProxyPlugin.ts`
   / `server/viteAircraftPhotoProxyPlugin.ts` — Vite dev-server middleware
-  that serves `/api/flightaware`, `/api/opensky`, and `/api/aircraftPhoto`
-  automatically whenever you run `npm run dev`. Nothing extra to start; all
-  three are wired into `vite.config.ts`.
-- `api/flightaware.ts` / `api/opensky.ts` / `api/aircraftPhoto.ts` —
-  [Vercel serverless functions](https://vercel.com/docs/functions) for
-  production. Files under `/api` become endpoints automatically on Vercel
-  with zero config. Deploying elsewhere (Netlify Functions, Cloudflare Pages
-  Functions, a small Node server, etc.) means adapting these files to that
-  platform's handler signature — the shared logic in `flightAwareCore.ts`/
-  `openSkyCore.ts`/`aircraftPhotoCore.ts` doesn't need to change.
+  that serves `/api/aviationstack`, `/api/flightaware`, `/api/opensky`, and
+  `/api/aircraftPhoto` automatically whenever you run `npm run dev`. Nothing
+  extra to start; all four are wired into `vite.config.ts`.
+- `api/aviationstack.ts` / `api/flightaware.ts` / `api/opensky.ts` /
+  `api/aircraftPhoto.ts` — [Vercel serverless functions](https://vercel.com/docs/functions)
+  for production. Files under `/api` become endpoints automatically on
+  Vercel with zero config. Deploying elsewhere (Netlify Functions, Cloudflare
+  Pages Functions, a small Node server, etc.) means adapting these files to
+  that platform's handler signature — the shared logic in
+  `aviationStackCore.ts`/`flightAwareCore.ts`/`openSkyCore.ts`/
+  `aircraftPhotoCore.ts` doesn't need to change.
 
 The OpenSky proxy does slightly more than a dumb passthrough: it also
 matches the requested flight's ICAO callsign against OpenSky's global
