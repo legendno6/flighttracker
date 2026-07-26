@@ -48,7 +48,11 @@ export function useFlights(manager: ProviderManager) {
   const [flights, setFlights] = useState<TrackedFlight[]>(() => loadTrackedFlights());
   const [manualOrder, setManualOrder] = useState<string[]>(() => loadFlightOrder());
   const [duplicateFlashId, setDuplicateFlashId] = useState<string | null>(null);
-  const [legChoicePrompt, setLegChoicePrompt] = useState<LegChoicePrompt | null>(null);
+  // A queue, not a single slot — if two ambiguous flights are added together
+  // (or their lookups otherwise resolve concurrently), both prompts must be
+  // shown in turn rather than the second silently overwriting the first.
+  const [legChoiceQueue, setLegChoiceQueue] = useState<LegChoicePrompt[]>([]);
+  const legChoicePrompt = legChoiceQueue[0] ?? null;
   const flightsRef = useRef(flights);
   flightsRef.current = flights;
 
@@ -111,13 +115,9 @@ export function useFlights(manager: ProviderManager) {
           }),
         );
         if (options?.offerLegChoice && result.legKey && result.alternateLegs && result.alternateLegs.length > 1) {
-          setLegChoicePrompt({
-            flightId: id,
-            rawInput,
-            flightDate,
-            defaultLegKey: result.legKey,
-            candidates: result.alternateLegs,
-          });
+          const defaultLegKey = result.legKey;
+          const candidates = result.alternateLegs;
+          setLegChoiceQueue((prev) => [...prev, { flightId: id, rawInput, flightDate, defaultLegKey, candidates }]);
         }
       } catch (err) {
         setFlights((prev) =>
@@ -199,7 +199,7 @@ export function useFlights(manager: ProviderManager) {
   );
 
   const cancelLegChoice = useCallback(() => {
-    setLegChoicePrompt(null);
+    setLegChoiceQueue((prev) => prev.slice(1));
   }, []);
 
   /**
@@ -217,16 +217,20 @@ export function useFlights(manager: ProviderManager) {
       if (!prompt) return;
 
       const keepOriginal = selectedLegKeys.includes(prompt.defaultLegKey);
+      const pinnedId = `${prompt.flightId}-${prompt.defaultLegKey}`;
+
       setFlights((prev) => {
         if (keepOriginal) {
-          return prev.map((f) =>
-            f.id === prompt.flightId
-              ? { ...f, legKey: prompt.defaultLegKey, id: `${prompt.flightId}-${prompt.defaultLegKey}` }
-              : f,
-          );
+          return prev.map((f) => (f.id === prompt.flightId ? { ...f, legKey: prompt.defaultLegKey, id: pinnedId } : f));
         }
         return prev.filter((f) => f.id !== prompt.flightId);
       });
+
+      if (keepOriginal) {
+        // Keep the card's saved manual-drag position instead of it silently
+        // falling to the end of the list just because its id changed.
+        setManualOrder((prev) => prev.map((id) => (id === prompt.flightId ? pinnedId : id)));
+      }
 
       for (const legKey of selectedLegKeys) {
         if (legKey === prompt.defaultLegKey) continue;
@@ -235,7 +239,7 @@ export function useFlights(manager: ProviderManager) {
         void runLookup(pending.id, pending.input, prompt.flightDate, true, { legKey });
       }
 
-      setLegChoicePrompt(null);
+      setLegChoiceQueue((prev) => prev.slice(1));
     },
     [legChoicePrompt, runLookup],
   );
