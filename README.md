@@ -122,11 +122,13 @@ same fix — a minimal same-origin proxy for each.
 - `server/viteAviationStackProxyPlugin.ts` /
   `server/viteFlightAwareProxyPlugin.ts` / `server/viteOpenSkyProxyPlugin.ts`
   / `server/viteAircraftPhotoProxyPlugin.ts` — Vite dev-server middleware
-  that serves `/api/aviationstack`, `/api/flightaware`, `/api/opensky`, and
-  `/api/aircraftPhoto` automatically whenever you run `npm run dev`. Nothing
-  extra to start; all four are wired into `vite.config.ts`.
-- `api/aviationstack.ts` / `api/flightaware.ts` / `api/opensky.ts` /
-  `api/aircraftPhoto.ts` — [Vercel serverless functions](https://vercel.com/docs/functions)
+  that serves `/api/aviationstack`, `/api/flightaware`, `/api/flightaware-usage`,
+  `/api/opensky`, and `/api/aircraftPhoto` automatically whenever you run
+  `npm run dev`. Nothing extra to start; all four are wired into
+  `vite.config.ts` (the usage route shares the FlightAware plugin, since it's
+  the same API/key).
+- `api/aviationstack.ts` / `api/flightaware.ts` / `api/flightaware-usage.ts` /
+  `api/opensky.ts` / `api/aircraftPhoto.ts` — [Vercel serverless functions](https://vercel.com/docs/functions)
   for production. Files under `/api` become endpoints automatically on
   Vercel with zero config. Deploying elsewhere (Netlify Functions, Cloudflare
   Pages Functions, a small Node server, etc.) means adapting these files to
@@ -384,6 +386,15 @@ the app.
   individually pinned so later refreshes don't drift to a different leg.
   Tracking an extra leg beyond the one already fetched spends one more API
   request, since its detail was never retrieved.
+- **FlightAware cost limit**: since AeroAPI is billed per request with no
+  fixed monthly quota, Settings shows FlightAware's own reported account
+  usage (`GET /account/usage`) — total calls and total cost — fetched once
+  when the app starts and again every hour for as long as the tab stays
+  open, plus a manual "Refresh now" button. A user-set dollar limit
+  (default $5) is compared against that reported cost; once reached,
+  FlightAware is skipped (falling through to the next configured provider)
+  until AeroAPI's own figure drops back below the limit or you raise it.
+  Skipped in demo mode, same as every other real API call.
 - **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
   departure only every 4 hours, and flights 12–24h out only every hour,
   regardless of the interval selected above — gates and terminals essentially

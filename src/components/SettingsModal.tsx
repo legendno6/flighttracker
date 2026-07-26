@@ -7,6 +7,7 @@ import { estimateSessionDuration } from '../services/requestEstimate';
 import { formatDurationMinutes } from '../utils/dateTimeUtils';
 import { isNotificationSupported, requestNotificationPermission } from '../services/notificationService';
 import { BellIcon } from './icons/BellIcon';
+import { formatTimeAgo } from '../utils/dateTimeUtils';
 
 // Used only if the browser doesn't support Intl.supportedValuesOf('timeZone').
 const FALLBACK_TIMEZONES = [
@@ -39,14 +40,24 @@ interface SettingsModalProps {
   activeFlightCount: number;
   /** Shared with the dashboard's own Restart control (App.tsx) so both reflect the reset immediately, rather than each tracking its own disconnected re-render state. */
   onRestartSession: () => void;
+  /** Manually re-fetches FlightAware's account usage on demand (App.tsx owns the fetch + the re-render trigger, same as onRestartSession). */
+  onRefreshFlightAwareUsage: () => Promise<void>;
 }
 
-export function SettingsModal({ open, onClose, providerManager, activeFlightCount, onRestartSession }: SettingsModalProps) {
+export function SettingsModal({
+  open,
+  onClose,
+  providerManager,
+  activeFlightCount,
+  onRestartSession,
+  onRefreshFlightAwareUsage,
+}: SettingsModalProps) {
   const { settings, updateSettings } = useSettings();
   const [aviationStackKey, setAviationStackKey] = useState(settings.credentials.aviationStackApiKey);
   const [notificationStatusMessage, setNotificationStatusMessage] = useState<string | null>(null);
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetOverrideValue, setBudgetOverrideValue] = useState('');
+  const [refreshingUsage, setRefreshingUsage] = useState(false);
   const [, forceRerender] = useState(0);
 
   useEffect(() => {
@@ -113,6 +124,15 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
     forceRerender((t) => t + 1);
   }
 
+  async function handleRefreshUsageClick() {
+    setRefreshingUsage(true);
+    try {
+      await onRefreshFlightAwareUsage();
+    } finally {
+      setRefreshingUsage(false);
+    }
+  }
+
   function handleSave() {
     updateSettings({
       credentials: {
@@ -124,6 +144,7 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
 
   const aviationStackBudget = providerManager.aviationStack.budget;
   const sessionGovernor = providerManager.sessionGovernor;
+  const flightAwareUsage = providerManager.flightAware.usage;
 
   const estimate = estimateSessionDuration(
     settings.sessionRequestLimit,
@@ -249,8 +270,58 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
             through this app's own server-side proxy, never directly from the browser. Set{' '}
             <code className="rounded bg-slate-200 px-1 py-0.5 dark:bg-slate-700">FLIGHTAWARE_API_KEY</code>{' '}
             as an environment variable where the app runs (see README) — the key never touches the
-            browser. Billed per request (no fixed monthly quota), rate-limited to 10 requests/minute;
-            the session request limit below is the main guard against runaway cost.
+            browser. Billed per request (no fixed monthly quota), rate-limited to 10 requests/minute.
+
+            <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+              {flightAwareUsage.current ? (
+                <p>
+                  Usage this period:{' '}
+                  <strong>
+                    {flightAwareUsage.current.totalCalls} calls, ${flightAwareUsage.current.totalCost.toFixed(2)}
+                  </strong>
+                  . Last checked: {formatTimeAgo(flightAwareUsage.current.fetchedAt) ?? 'just now'}.
+                </p>
+              ) : flightAwareUsage.lastError ? (
+                <p className="text-red-600 dark:text-red-400">{flightAwareUsage.lastError}</p>
+              ) : (
+                <p>Usage not checked yet.</p>
+              )}
+
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="flightaware-cost-limit" className="shrink-0">
+                  Cost limit ($)
+                </label>
+                <input
+                  id="flightaware-cost-limit"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={settings.flightAwareCostLimit}
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value);
+                    updateSettings({ flightAwareCostLimit: Number.isFinite(parsed) && parsed >= 0 ? parsed : 0 });
+                  }}
+                  className="min-h-[36px] w-24 rounded-lg border border-slate-300 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-800"
+                />
+                <button
+                  type="button"
+                  onClick={handleRefreshUsageClick}
+                  disabled={refreshingUsage || settings.demoMode}
+                  className="min-h-[36px] rounded-lg bg-slate-200 px-3 py-1 font-semibold text-slate-700 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                >
+                  {refreshingUsage ? 'Refreshing…' : 'Refresh now'}
+                </button>
+              </div>
+              {settings.demoMode && <p className="mt-1">Demo mode is on, so usage isn't fetched.</p>}
+
+              {flightAwareUsage.isOverLimit(settings.flightAwareCostLimit) && (
+                <p className="mt-1 font-semibold text-red-600 dark:text-red-400">
+                  Cost limit reached — FlightAware will be skipped until this account's own reported
+                  cost drops back below ${settings.flightAwareCostLimit.toFixed(2)}, or you raise the
+                  limit above.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">

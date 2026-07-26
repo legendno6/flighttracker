@@ -108,6 +108,14 @@ const HELP_TABS: HelpTab[] = [
           <strong>Demo mode</strong> (Settings) switches to offline sample data with no real API calls
           — useful for trying the app out before adding any keys.
         </p>
+        <p className="mt-3">
+          FlightAware bills per request with no fixed monthly quota, so Settings shows its own
+          reported account usage (total calls and total cost), refreshed once when the app starts
+          and every hour after that, plus a manual "Refresh now" button. Set a dollar cost limit
+          (default $5) — once FlightAware's own reported cost reaches it, FlightAware is skipped in
+          favor of the next configured provider until that figure drops back below the limit or you
+          raise it.
+        </p>
       </>
     ),
   },
