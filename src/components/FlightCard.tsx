@@ -59,48 +59,69 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
       )}
       aria-label={`Flight ${flight.input} on ${flight.flightDate}`}
     >
-      <header className="flex items-start gap-1">
-        {dragHandleProps && (
-          <button
-            type="button"
-            {...dragHandleProps.attributes}
-            {...dragHandleProps.listeners}
-            aria-label={`Drag to reorder flight ${flight.input}`}
-            className="-ml-1 flex min-h-[44px] min-w-[32px] shrink-0 cursor-grab items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
-          >
-            <GripIcon />
-          </button>
-        )}
-        <div>
-          {flightAwareUrl ? (
-            <a
-              href={flightAwareUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-block"
-              aria-label={`View ${data?.airline ?? flight.input} ${data?.flightNumber ?? ''} on FlightAware`}
+      <header className="flex items-start justify-between gap-1">
+        <div className="flex items-start gap-1">
+          {dragHandleProps && (
+            <button
+              type="button"
+              {...dragHandleProps.attributes}
+              {...dragHandleProps.listeners}
+              aria-label={`Drag to reorder flight ${flight.input}`}
+              className="-ml-1 flex min-h-[44px] min-w-[32px] shrink-0 cursor-grab items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
             >
-              <h3 className="text-lg font-bold group-hover:underline">
+              <GripIcon />
+            </button>
+          )}
+          <div>
+            {flightAwareUrl ? (
+              <a
+                href={flightAwareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-block"
+                aria-label={`View ${data?.airline ?? flight.input} ${data?.flightNumber ?? ''} on FlightAware`}
+              >
+                <h3 className="text-lg font-bold group-hover:underline">
+                  {data?.airline ?? flight.input} {data?.flightNumber ?? ''}
+                </h3>
+              </a>
+            ) : (
+              <h3 className="text-lg font-bold">
                 {data?.airline ?? flight.input} {data?.flightNumber ?? ''}
               </h3>
-            </a>
-          ) : (
-            <h3 className="text-lg font-bold">
-              {data?.airline ?? flight.input} {data?.flightNumber ?? ''}
-            </h3>
-          )}
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {flight.input} &middot; {flight.flightDate}
-            {data?.aircraftType ? ` · ${data.aircraftType}` : ''}
-          </p>
-          {/* Always on its own line below the airline info — a shared flex row with
-              the header text wrapped inconsistently depending on airline-name length. */}
-          {data && (
-            <div className="mt-1.5">
-              <StatusBadge status={data.status} />
-            </div>
-          )}
+            )}
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {flight.input} &middot; {flight.flightDate}
+              {data?.aircraftType ? ` · ${data.aircraftType}` : ''}
+            </p>
+            {/* Always on its own line below the airline info — a shared flex row with
+                the header text wrapped inconsistently depending on airline-name length. */}
+            {data && (
+              <div className="mt-1.5">
+                <StatusBadge status={data.status} />
+              </div>
+            )}
+          </div>
         </div>
+
+        {data && (
+          <label
+            className="flex shrink-0 cursor-pointer items-center gap-1.5"
+            title={flight.autoRefreshEnabled ? 'Auto-refresh on — click to turn off' : 'Auto-refresh off — click to turn on'}
+          >
+            <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={flight.autoRefreshEnabled}
+                onChange={() => onToggleAutoRefresh(flight.id)}
+                aria-label={`Auto-refresh for flight ${flight.input}`}
+              />
+              <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-500 dark:bg-slate-700" />
+              <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+            </span>
+          </label>
+        )}
       </header>
 
       {isLoading && (
@@ -180,21 +201,6 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
             {flight.lastRefreshedAt &&
               ` · Updated ${formatTimeInZone(flight.lastRefreshedAt, resolveDisplayTimezone(settings.displayTimezone, null), tzOverrideActive)}`}
           </p>
-
-          <label className="flex cursor-pointer items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>Auto-refresh</span>
-            <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={flight.autoRefreshEnabled}
-                onChange={() => onToggleAutoRefresh(flight.id)}
-                aria-label={`Auto-refresh for flight ${flight.input}`}
-              />
-              <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-500 dark:bg-slate-700" />
-              <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
-            </span>
-          </label>
         </div>
       )}
 

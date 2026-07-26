@@ -14,7 +14,16 @@ import { findAirportTimezone } from '../data/airportTimezones';
 // AviationStack's free tier is HTTP-only (no HTTPS) and capped at 100
 // requests/month. Both constraints come from their pricing terms, not this
 // app — worth re-checking on their pricing page if this ever seems stale.
-const API_BASE_URL = 'http://api.aviationstack.com/v1/flights';
+//
+// The HTTP-only part means calling their API directly from the browser (as
+// this used to) gets silently blocked as "mixed content" the instant the
+// page itself is loaded over HTTPS — confirmed by testing: the fetch never
+// leaves the browser, AviationStack never sees it, and the local request
+// counter never increments since nothing ever comes back. Routing through
+// this app's own same-origin proxy (see server/aviationStackCore.ts) fixes
+// that regardless of the page's own protocol, the same reasoning already
+// applied to FlightAware/OpenSky (there for missing CORS headers instead).
+const PROXY_URL = '/api/aviationstack';
 const FREE_TIER_MONTHLY_LIMIT = 100;
 
 interface AviationStackAirportPayload {
@@ -140,14 +149,14 @@ export class AviationStackProvider implements FlightProvider {
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}?${params.toString()}`, {
+      response = await fetch(`${PROXY_URL}?${params.toString()}`, {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (err) {
       throw new ProviderNetworkError(
         err instanceof Error && err.name === 'TimeoutError'
           ? 'AviationStack request timed out.'
-          : 'Could not reach AviationStack.',
+          : 'Could not reach the AviationStack proxy — is the dev server (or your deployment) running it?',
       );
     }
 

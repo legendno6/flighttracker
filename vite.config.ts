@@ -4,6 +4,7 @@ import { config as loadDotenv } from 'dotenv';
 import { flightAwareDevProxyPlugin } from './server/viteFlightAwareProxyPlugin';
 import { openSkyDevProxyPlugin } from './server/viteOpenSkyProxyPlugin';
 import { aircraftPhotoDevProxyPlugin } from './server/viteAircraftPhotoProxyPlugin';
+import { aviationStackDevProxyPlugin } from './server/viteAviationStackProxyPlugin';
 
 // Populates process.env from .env for the dev-server-side proxies (Vite only
 // exposes VITE_-prefixed vars to client code via import.meta.env; this is
@@ -11,7 +12,13 @@ import { aircraftPhotoDevProxyPlugin } from './server/viteAircraftPhotoProxyPlug
 loadDotenv();
 
 export default defineConfig({
-  plugins: [react(), flightAwareDevProxyPlugin(), openSkyDevProxyPlugin(), aircraftPhotoDevProxyPlugin()],
+  plugins: [
+    react(),
+    flightAwareDevProxyPlugin(),
+    openSkyDevProxyPlugin(),
+    aircraftPhotoDevProxyPlugin(),
+    aviationStackDevProxyPlugin(),
+  ],
   server: {
     port: 5173,
   },

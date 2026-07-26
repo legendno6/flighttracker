@@ -7,11 +7,12 @@ import express, { type Request, type Response } from 'express';
 import { fetchFlightAwareFlight } from './flightAwareCore';
 import { fetchOpenSkyFlightTrack, fetchOpenSkyPosition } from './openSkyCore';
 import { fetchAircraftPhoto } from './aircraftPhotoCore';
+import { fetchAviationStackFlight } from './aviationStackCore';
 
 /**
  * Standalone production server for deployments that aren't Vercel (e.g. a
  * Raspberry Pi on the local network) — serves the built static app
- * (`npm run build`'s `dist/`) and the same three proxy endpoints the Vite
+ * (`npm run build`'s `dist/`) and the same four proxy endpoints the Vite
  * dev server and Vercel functions expose, all from one Node process on one
  * port. The actual proxy logic lives in the `*Core.ts` files and is shared
  * unchanged across all three deployment targets; this file is just a third
@@ -71,6 +72,14 @@ app.get('/api/opensky', async (req: Request, res: Response) => {
 app.get('/api/aircraftPhoto', async (req: Request, res: Response) => {
   const icao24 = stringParam(req.query.icao24);
   const { status, body } = await fetchAircraftPhoto(icao24);
+  res.status(status).setHeader('Content-Type', 'application/json').send(body);
+});
+
+app.get('/api/aviationstack', async (req: Request, res: Response) => {
+  const searchParams = new URLSearchParams(
+    Object.entries(req.query).flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : [])),
+  );
+  const { status, body } = await fetchAviationStackFlight(searchParams);
   res.status(status).setHeader('Content-Type', 'application/json').send(body);
 });
 

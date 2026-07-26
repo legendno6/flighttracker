@@ -161,9 +161,11 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
         <section className="mt-4">
           <h3 className="font-semibold">Data providers</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            AviationStack's key is stored only in this browser's local storage and sent directly to
-            their API. FlightAware and OpenSky are called through this app's own server-side proxy
-            instead (details below) — neither supports being called directly from a browser.
+            AviationStack's key is stored only in this browser's local storage. All three providers —
+            AviationStack, FlightAware, and OpenSky — are called through this app's own server-side
+            proxy (details below): AviationStack because a browser silently blocks its HTTP-only API as
+            "mixed content" on an HTTPS-served page, FlightAware and OpenSky because neither supports
+            being called directly from a browser at all.
           </p>
 
           <div className="mt-4">
