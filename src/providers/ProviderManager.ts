@@ -37,7 +37,7 @@ interface CacheEntry {
  */
 export class ProviderManager {
   readonly aviationStack: AviationStackProvider;
-  readonly flightAware: FlightAwareProvider = new FlightAwareProvider();
+  readonly flightAware: FlightAwareProvider;
   readonly openSky: OpenSkyProvider = new OpenSkyProvider();
   readonly google: GoogleProvider = new GoogleProvider();
   readonly mock: MockProvider = new MockProvider();
@@ -50,6 +50,7 @@ export class ProviderManager {
     this.aviationStack = new AviationStackProvider(
       () => this.getSettings().credentials.aviationStackApiKey,
     );
+    this.flightAware = new FlightAwareProvider(() => this.getSettings().flightAwareCostLimit);
     this.sessionGovernor = new SessionRequestGovernor(() => this.getSettings().sessionRequestLimit);
   }
 

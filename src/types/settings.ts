@@ -41,6 +41,8 @@ export interface AppSettings {
   showAircraftPhoto: boolean;
   /** Unlocks the 1-minute and 5-minute auto-refresh options in the toolbar dropdown. Off by default — that cadence can exhaust a free-tier API budget in minutes; intended for users on a paid provider plan. Selecting 1/5 min still requires confirming a warning dialog even once unlocked. */
   allowFastRefresh: boolean;
+  /** Dollar spending cap compared against FlightAware AeroAPI's own reported account cost (GET /account/usage, billed per-request with no fixed quota) — once that cost reaches this limit, FlightAware is skipped until the account's own figure drops back below it. Not a local tally; AeroAPI's number is the source of truth. */
+  flightAwareCostLimit: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -60,4 +62,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: false,
   showAircraftPhoto: true,
   allowFastRefresh: false,
+  flightAwareCostLimit: 5,
 };

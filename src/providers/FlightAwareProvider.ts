@@ -8,6 +8,7 @@ import {
 } from './FlightProvider';
 import type { AirportInfo, FlightLegSummary, FlightLookupResult, FlightStatus } from '../types/flight';
 import { findAirportTimezone } from '../data/airportTimezones';
+import { FlightAwareUsageTracker } from '../services/flightAwareUsageTracker';
 
 // Same-origin proxy — see server/flightAwareCore.ts for why this can't call
 // AeroAPI directly from the browser (no CORS headers on their responses).
@@ -136,6 +137,9 @@ function mapAirport(airport: FlightAwareAirport | null | undefined, gate?: strin
 export class FlightAwareProvider implements FlightProvider {
   readonly id = 'flightaware';
   readonly displayName = 'FlightAware (AeroAPI Personal)';
+  readonly usage = new FlightAwareUsageTracker();
+
+  constructor(private readonly getCostLimit: () => number) {}
 
   isConfigured(): boolean {
     // The API key lives server-side; the client can't see whether it's set,
@@ -145,6 +149,14 @@ export class FlightAwareProvider implements FlightProvider {
   }
 
   async lookupFlight(request: FlightLookupRequest): Promise<FlightLookupResult> {
+    const costLimit = this.getCostLimit();
+    if (this.usage.isOverLimit(costLimit)) {
+      const spent = this.usage.current?.totalCost.toFixed(2) ?? '?';
+      throw new ProviderRateLimitError(
+        `FlightAware cost limit ($${costLimit.toFixed(2)}) reached — used $${spent} this period.`,
+      );
+    }
+
     const ident = request.normalized.icaoFlightNumber ?? request.normalized.iataFlightNumber;
     if (!ident) {
       throw new ProviderUnavailableError('Could not resolve a flight identifier to search for.');

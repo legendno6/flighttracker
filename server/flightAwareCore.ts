@@ -52,3 +52,24 @@ export async function fetchFlightAwareFlight(ident: string | null, searchParams:
     return jsonError(502, 'network_error', 'Could not reach FlightAware.');
   }
 }
+
+/**
+ * Account-level usage/cost, used to show the user how close they are to a
+ * self-set spending limit (see FlightAwareUsageTracker). Same dumb-passthrough
+ * shape as fetchFlightAwareFlight — interpretation of the response stays
+ * client-side.
+ */
+export async function fetchFlightAwareUsage(): Promise<ProxyResult> {
+  const apiKey = process.env.FLIGHTAWARE_API_KEY;
+  if (!apiKey) {
+    return jsonError(500, 'not_configured', 'FLIGHTAWARE_API_KEY is not set on the server.');
+  }
+
+  try {
+    const upstream = await fetch(`${AEROAPI_BASE}/account/usage`, { headers: { 'x-apikey': apiKey } });
+    const body = await upstream.text();
+    return { status: upstream.status, body };
+  } catch {
+    return jsonError(502, 'network_error', 'Could not reach FlightAware.');
+  }
+}

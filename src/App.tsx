@@ -3,6 +3,7 @@ import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useFlights } from './hooks/useFlights';
 import { useAutoRefresh } from './hooks/useAutoRefresh';
 import { useProviderManager } from './hooks/useProviderManager';
+import { useFlightAwareUsagePolling } from './hooks/useFlightAwareUsagePolling';
 import { Header } from './components/Header';
 import { AddFlightForm } from './components/AddFlightForm';
 import { RefreshControls } from './components/RefreshControls';
@@ -42,6 +43,8 @@ function AppShell() {
   const [, forceRerender] = useState(0);
   const activeFlightCount = useMemo(() => flights.filter((f) => isActivelyRefreshable(f)).length, [flights]);
 
+  useFlightAwareUsagePolling(providerManager, settings.demoMode, () => forceRerender((t) => t + 1));
+
   function handleRefreshAll() {
     refreshAll();
     markManualRefresh();
@@ -54,6 +57,11 @@ function AppShell() {
 
   function handleRestartSession() {
     providerManager.sessionGovernor.reset();
+    forceRerender((t) => t + 1);
+  }
+
+  async function handleRefreshFlightAwareUsage() {
+    await providerManager.flightAware.usage.refresh();
     forceRerender((t) => t + 1);
   }
 
@@ -99,6 +107,7 @@ function AppShell() {
         providerManager={providerManager}
         activeFlightCount={activeFlightCount}
         onRestartSession={handleRestartSession}
+        onRefreshFlightAwareUsage={handleRefreshFlightAwareUsage}
       />
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
