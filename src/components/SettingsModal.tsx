@@ -282,21 +282,22 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             A hard cap on real API requests for this browser session, on top of each provider's own
             monthly quota — a safety net in case auto-refresh keeps running after you've stepped
-            away. Resets automatically on reload; use Restart to reset without one.
+            away. Resets automatically on reload; use Restart to reset without one. Set to 0 to
+            disable the cap entirely (unlimited requests this session).
           </p>
 
           <div className="mt-3 flex items-center gap-2">
             <label htmlFor="session-limit" className="sr-only">
-              Total requests to allow this session
+              Total requests to allow this session (0 = unlimited)
             </label>
             <input
               id="session-limit"
               type="number"
-              min={1}
+              min={0}
               value={settings.sessionRequestLimit}
               onChange={(e) => {
                 const parsed = Math.floor(Number(e.target.value));
-                updateSettings({ sessionRequestLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : 1 });
+                updateSettings({ sessionRequestLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : 0 });
               }}
               className="min-h-[44px] w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
             />
@@ -310,7 +311,8 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
           </div>
 
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            Used this session: {sessionGovernor.used}/{settings.sessionRequestLimit}.
+            Used this session: {sessionGovernor.used}/
+            {settings.sessionRequestLimit === 0 ? 'unlimited' : settings.sessionRequestLimit}.
           </p>
 
           {!sessionGovernor.hasRemaining() && (
@@ -320,13 +322,15 @@ export function SettingsModal({ open, onClose, providerManager, activeFlightCoun
           )}
 
           <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-            {settings.refreshIntervalMinutes === 0
-              ? 'Auto-refresh is off, so this only limits manual refreshes.'
-              : activeFlightCount === 0
-                ? 'Add flights to estimate how long this will last at the current refresh interval.'
-                : estimate
-                  ? `At ${activeFlightCount} flight${activeFlightCount === 1 ? '' : 's'} every ${settings.refreshIntervalMinutes} min, this covers about ${formatDurationMinutes(estimate.minutes)} of auto-refresh (~${estimate.cycles} cycle${estimate.cycles === 1 ? '' : 's'}). Best-case — a provider fallback can use more than one request per flight.`
-                  : "Not enough budget for even one refresh cycle at this flight count."}
+            {settings.sessionRequestLimit === 0
+              ? 'No session cap is set — auto-refresh will run without a request limit this session (each provider\'s own monthly quota still applies).'
+              : settings.refreshIntervalMinutes === 0
+                ? 'Auto-refresh is off, so this only limits manual refreshes.'
+                : activeFlightCount === 0
+                  ? 'Add flights to estimate how long this will last at the current refresh interval.'
+                  : estimate
+                    ? `At ${activeFlightCount} flight${activeFlightCount === 1 ? '' : 's'} every ${settings.refreshIntervalMinutes} min, this covers about ${formatDurationMinutes(estimate.minutes)} of auto-refresh (~${estimate.cycles} cycle${estimate.cycles === 1 ? '' : 's'}). Best-case — a provider fallback can use more than one request per flight.`
+                    : "Not enough budget for even one refresh cycle at this flight count."}
           </p>
         </section>
 

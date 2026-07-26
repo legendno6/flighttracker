@@ -4,6 +4,10 @@
  * Deliberately NOT persisted to localStorage: reloading the page resets it,
  * same as restarting the program would. The "Restart" button in Settings
  * exists purely so a reset doesn't require an actual reload.
+ *
+ * A limit of 0 (or below) is treated as "no cap" — this session's requests
+ * run unthrottled by this governor (each provider's own monthly budget
+ * still applies independently).
  */
 export class SessionRequestGovernor {
   private usedCount = 0;
@@ -19,10 +23,12 @@ export class SessionRequestGovernor {
   }
 
   get remaining(): number {
+    if (this.limit <= 0) return Infinity; // 0 (or below) means "no cap"
     return Math.max(0, this.limit - this.usedCount);
   }
 
   hasRemaining(): boolean {
+    if (this.limit <= 0) return true; // 0 (or below) means "no cap"
     return this.usedCount < this.limit;
   }
 

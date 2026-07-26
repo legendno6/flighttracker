@@ -352,7 +352,9 @@ the app.
   click Restart (or reload the page, which resets it automatically since
   it isn't persisted). This exists specifically so walking away with
   auto-refresh on doesn't quietly rack up FlightAware usage or burn through
-  AviationStack's monthly quota.
+  AviationStack's monthly quota. Set it to 0 to disable the cap entirely
+  (unlimited requests this session) — each provider's own monthly quota
+  still applies independently.
 - **OpenSky states/all caching**: OpenSky's live-position snapshot covers
   every aircraft on Earth (a sizeable payload), and refreshing several
   in-flight cards at once would otherwise trigger that many redundant
