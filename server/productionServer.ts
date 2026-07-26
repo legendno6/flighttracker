@@ -1,3 +1,5 @@
+import fs from 'fs';
+import https from 'https';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config as loadDotenv } from 'dotenv';
@@ -24,6 +26,18 @@ const port = Number(process.env.PORT) || 3000;
 // Bind to every network interface (not just localhost) so other devices on
 // the LAN can reach it, e.g. http://<pi-ip-address>:3000.
 const host = '0.0.0.0';
+
+// Browser Notification permission (and other secure-context-only APIs) can't
+// be granted on a plain http:// origin unless it's localhost — a bare LAN IP
+// doesn't qualify, even if the site's permission is set to "Allow". Serving
+// an additional HTTPS listener alongside the existing HTTP one (rather than
+// replacing it) lets notifications work over https://<pi-ip>:<tlsPort> while
+// leaving any existing http:// bookmarks/links working exactly as before.
+// Opt-in: only starts if both cert files exist. Generate them with
+// `deploy/generate-cert.sh`.
+const tlsPort = Number(process.env.TLS_PORT) || 3443;
+const tlsCertPath = process.env.TLS_CERT_PATH ?? path.join(__dirname, '..', 'deploy', 'certs', 'cert.pem');
+const tlsKeyPath = process.env.TLS_KEY_PATH ?? path.join(__dirname, '..', 'deploy', 'certs', 'key.pem');
 
 function stringParam(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
@@ -72,3 +86,12 @@ app.use((_req: Request, res: Response) => {
 app.listen(port, host, () => {
   console.log(`PlaneStatus serving on http://${host}:${port} (run \`npm run build\` first if this is a fresh checkout)`);
 });
+
+if (fs.existsSync(tlsCertPath) && fs.existsSync(tlsKeyPath)) {
+  const tlsOptions = { cert: fs.readFileSync(tlsCertPath), key: fs.readFileSync(tlsKeyPath) };
+  https.createServer(tlsOptions, app).listen(tlsPort, host, () => {
+    console.log(`PlaneStatus also serving HTTPS on https://${host}:${tlsPort} (self-signed — browsers will warn once per device)`);
+  });
+} else {
+  console.log('No TLS cert found (deploy/certs/cert.pem + key.pem) — HTTPS disabled. Run deploy/generate-cert.sh to enable it (needed for browser notifications on a LAN IP).');
+}

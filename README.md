@@ -210,6 +210,43 @@ the same network at `http://<pi-ip-address>:3000`.
    ```
    Equivalent to running those four commands by hand from the repo root.
 
+#### Enabling notifications (HTTPS)
+
+Browsers only grant the Notification permission on a "secure context" —
+`https://`, or `http://localhost`. A LAN IP like `http://192.168.86.86:3000`
+doesn't qualify, so the in-app notification toggle will report the
+permission as blocked no matter what the browser's site settings say, until
+the app is also served over HTTPS.
+
+`server/productionServer.ts` will start a second, HTTPS listener alongside
+the existing HTTP one whenever it finds a cert/key pair, without disturbing
+any existing `http://` bookmarks:
+
+1. **Generate a self-signed cert** for the Pi's LAN IP:
+   ```bash
+   ./deploy/generate-cert.sh 192.168.86.86   # use your Pi's actual LAN IP
+   ```
+   Writes `deploy/certs/cert.pem` and `deploy/certs/key.pem` (both
+   git-ignored — this cert is specific to this one machine and shouldn't be
+   committed). Re-run this if the Pi's LAN IP ever changes.
+2. **Restart the service** so it picks the cert up:
+   ```bash
+   sudo systemctl restart planestatus
+   ```
+   `journalctl -u planestatus -f` should now show a second line about
+   serving HTTPS on port 3443 (override with `TLS_PORT` in `.env`).
+3. **Visit `https://<pi-ip>:3443`** instead of the old `http://` URL. The
+   browser will show a "not secure" / self-signed-certificate warning the
+   first time — that's expected for a self-signed cert with no real
+   certificate authority behind it (it doesn't mean the connection isn't
+   encrypted, only that nothing vouches for who's on the other end, which
+   doesn't matter on your own LAN). Click through it once per device
+   (Chrome: Advanced → Proceed). The site's notification toggle should then
+   work normally.
+
+This step is entirely optional — skip it if you don't want notifications;
+the plain `http://` setup above works fine on its own for everything else.
+
 This setup is LAN-only by design — nothing here opens a port on your
 router or exposes the Pi to the public internet. Every device that needs
 access just has to be on the same local network as the Pi.

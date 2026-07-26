@@ -6,6 +6,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+deploy/certs/
 
 # Editor
 .vscode/*
