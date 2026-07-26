@@ -26,8 +26,9 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 
 export function loadTrackedFlights(): TrackedFlight[] {
   const flights = safeParse<TrackedFlight[]>(localStorage.getItem(FLIGHTS_KEY), []);
-  // Reset transient fields that shouldn't survive a reload.
-  return flights.map((f) => ({ ...f, isLoading: false }));
+  // Reset transient fields that shouldn't survive a reload, and backfill
+  // fields that didn't exist when older data was saved.
+  return flights.map((f) => ({ ...f, isLoading: false, autoRefreshEnabled: f.autoRefreshEnabled ?? true }));
 }
 
 export function saveTrackedFlights(flights: TrackedFlight[]): void {

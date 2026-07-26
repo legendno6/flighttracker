@@ -17,6 +17,7 @@ interface FlightCardProps {
   flight: TrackedFlight;
   onRefresh: (id: string) => void;
   onRemove: (id: string) => void;
+  onToggleAutoRefresh: (id: string) => void;
   isDuplicateFlash?: boolean;
   dragHandleProps?: {
     attributes: DraggableAttributes;
@@ -24,7 +25,7 @@ interface FlightCardProps {
   };
 }
 
-export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, dragHandleProps }: FlightCardProps) {
+export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, isDuplicateFlash, dragHandleProps }: FlightCardProps) {
   // Re-render every minute so elapsed/remaining/percent tick forward without a network call.
   useClockTick();
   const { settings } = useSettings();
@@ -179,6 +180,21 @@ export function FlightCard({ flight, onRefresh, onRemove, isDuplicateFlash, drag
             {flight.lastRefreshedAt &&
               ` · Updated ${formatTimeInZone(flight.lastRefreshedAt, resolveDisplayTimezone(settings.displayTimezone, null), tzOverrideActive)}`}
           </p>
+
+          <label className="flex cursor-pointer items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>Auto-refresh</span>
+            <span className="relative inline-flex h-5 w-9 shrink-0 items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={flight.autoRefreshEnabled}
+                onChange={() => onToggleAutoRefresh(flight.id)}
+                aria-label={`Auto-refresh for flight ${flight.input}`}
+              />
+              <span className="absolute inset-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-blue-500 dark:bg-slate-700" />
+              <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4" />
+            </span>
+          </label>
         </div>
       )}
 

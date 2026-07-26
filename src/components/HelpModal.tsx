@@ -44,8 +44,8 @@ const HELP_TABS: HelpTab[] = [
       <>
         <p>
           The toolbar's <strong>Auto-refresh</strong> dropdown controls how often tracked flights are
-          looked up automatically: Off, every 10/15/30 minutes, or every hour. <strong>Refresh All</strong>{' '}
-          and each card's own Refresh button always run immediately, any time.
+          looked up automatically: Off, every 10/15/30 minutes, or every hour. Each card's own Refresh
+          button always runs immediately, any time.
         </p>
         <p className="mt-3">
           Flights more than 24 hours from departure are checked only every 4 hours, and flights 12–24
@@ -53,6 +53,13 @@ const HELP_TABS: HelpTab[] = [
           change that far in advance. Once a flight is within 12 hours of departure (or has already
           departed), it goes back to your selected interval. Landed and cancelled flights stop
           refreshing entirely.
+        </p>
+        <p className="mt-3">
+          Every card also has its own <strong>Auto-refresh</strong> toggle, on by default. Switching it
+          off excludes just that one flight from both the automatic timer and{' '}
+          <strong>Refresh All</strong> — handy for a flight you're only keeping visible for reference and
+          don't want spending API calls on. Its own Refresh button still always works immediately,
+          regardless of the toggle.
         </p>
         <p className="mt-3">
           Adding a flight more than a day out prompts once per session asking whether you have paid

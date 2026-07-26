@@ -27,6 +27,7 @@ export function createPendingFlight(rawInput: string, flightDate: string, farOut
     lastAttemptedAt: null,
     addedAt: new Date().toISOString(),
     farOutDeferred,
+    autoRefreshEnabled: true,
   };
 }
 
@@ -132,9 +133,10 @@ export function diffFlightForNotifications(oldData: FlightLookupResult | null, n
   return changes;
 }
 
-/** Landed and cancelled flights never need another lookup — nothing about them changes anymore. */
+/** Landed and cancelled flights never need another lookup — nothing about them changes anymore. Also excludes flights the user has switched auto-refresh off for (per-card toggle) — that only affects automatic/bulk paths, never the card's own explicit Refresh button. */
 export function isActivelyRefreshable(flight: TrackedFlight): boolean {
   if (!flight.data) return true;
+  if (flight.autoRefreshEnabled === false) return false;
   return flight.data.status !== 'Cancelled' && flight.data.status !== 'Landed';
 }
 

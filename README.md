@@ -354,13 +354,21 @@ the app.
   auto-refresh, no more inclusion in Refresh All, and the per-card Refresh
   button itself disappears (leaving only Remove), since nothing about it
   changes anymore.
+- **Per-flight auto-refresh switch**: each card has its own Auto-refresh
+  toggle (on by default) for opting just that one flight out of both the
+  automatic timer and "Refresh All" — e.g. to stop spending API calls on
+  a flight you're just keeping visible for reference. The card's own
+  Refresh button still works immediately regardless, for an explicit
+  one-off check.
 - **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
   departure only every 4 hours, and flights 12–24h out only every hour,
   regardless of the interval selected above — gates and terminals essentially
   never change that far in advance. Once a flight is within 12h of departure
   (or has already departed), it refreshes at your selected interval as
-  normal. This only throttles the *automatic* timer; "Refresh All" and each
-  card's own Refresh button always run immediately.
+  normal. This only throttles the *automatic* timer; each card's own Refresh
+  button always runs immediately regardless. "Refresh All" also runs
+  immediately for every flight except ones switched off via the per-flight
+  toggle above.
 - **Far-out flights (2+ days before departure)**: free-tier flight-data plans
   typically only return results for today and tomorrow, so adding a flight
   further out than that prompts once per session: "Do you have paid access

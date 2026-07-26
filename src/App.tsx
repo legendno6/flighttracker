@@ -22,6 +22,7 @@ function AppShell() {
     clearAll,
     refreshFlight,
     refreshAll,
+    toggleAutoRefresh,
     duplicateFlashId,
     sortMode,
     reorderFlights,
@@ -82,6 +83,7 @@ function AppShell() {
           sortMode={sortMode}
           onRefresh={handleRefreshOne}
           onRemove={removeFlight}
+          onToggleAutoRefresh={toggleAutoRefresh}
           onReorder={reorderFlights}
           onResetToAutoSort={resetToAutoSort}
         />
