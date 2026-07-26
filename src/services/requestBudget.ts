@@ -69,4 +69,16 @@ export class MonthlyRequestBudget {
   setUsed(count: number): void {
     writeRecord(this.providerId, { yearMonth: currentYearMonth(), count: Math.max(0, Math.round(count)) });
   }
+
+  /**
+   * Forces `hasRemaining()` to false for the rest of the current calendar
+   * month — for when the provider itself reports a rate/usage limit hit
+   * even though our local count hadn't reached the known cap (e.g. the cap
+   * changed, or usage from another origin isn't visible to this tracker).
+   * Self-clears on the next `readRecord` after the month rolls over, same
+   * as the normal counter.
+   */
+  markExhausted(): void {
+    writeRecord(this.providerId, { yearMonth: currentYearMonth(), count: this.monthlyLimit });
+  }
 }

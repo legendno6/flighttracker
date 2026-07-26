@@ -154,6 +154,13 @@ export class AviationStackProvider implements FlightProvider {
     this.budget.recordUsage();
 
     if (response.status === 429) {
+      // The free plan has no separate per-minute throttle — its only
+      // documented cap is the monthly volume — so a rate-limit response
+      // means we're done for the month, not "try again in a bit". Mark it
+      // exhausted so every subsequent lookup this month short-circuits
+      // locally instead of burning more requests against a limit we know
+      // is already hit.
+      this.budget.markExhausted();
       throw new ProviderRateLimitError('AviationStack rate limit exceeded.');
     }
 
@@ -171,6 +178,12 @@ export class AviationStackProvider implements FlightProvider {
     }
 
     if (body.error) {
+      if (/rate_limit|usage_limit/i.test(body.error.code ?? '')) {
+        // Same reasoning as the HTTP 429 branch above: the free plan's only
+        // cap is monthly, so this error code means the month is spent.
+        this.budget.markExhausted();
+        throw new ProviderRateLimitError(`AviationStack error (${body.error.code}): ${body.error.message}`);
+      }
       throw new ProviderUnavailableError(
         `AviationStack error${body.error.code ? ` (${body.error.code})` : ''}: ${body.error.message}`,
       );
