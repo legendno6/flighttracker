@@ -218,13 +218,21 @@ function RouteEndpoint({
 }) {
   const time = info.actual ?? info.estimated ?? info.scheduled;
   const effectiveZone = resolveDisplayTimezone(displayTimezone, info.timezone);
+  const tzOverrideActive = displayTimezone !== 'airport-local';
+  // Only worth a second line when it'd say something the main line doesn't
+  // already say — once actual/estimated catches up to match scheduled, or
+  // there's no actual/estimated yet at all, showing it twice is just noise.
+  const showScheduled = info.scheduled && info.scheduled !== time;
   return (
     <div className={align === 'right' ? 'text-right' : 'text-left'}>
       <p className="text-2xl font-bold">{info.code ?? '–'}</p>
       <p className="text-xs text-slate-500 dark:text-slate-400">{info.city ?? label}</p>
-      <p className="text-sm font-medium">
-        {formatTimeInZone(time, effectiveZone, displayTimezone !== 'airport-local') ?? '–'}
-      </p>
+      <p className="text-sm font-medium">{formatTimeInZone(time, effectiveZone, tzOverrideActive) ?? '–'}</p>
+      {showScheduled && (
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          Sched. {formatTimeInZone(info.scheduled, effectiveZone, tzOverrideActive)}
+        </p>
+      )}
     </div>
   );
 }
