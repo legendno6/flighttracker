@@ -201,8 +201,14 @@ the same network at `http://<pi-ip-address>:3000`.
    sudo systemctl enable --now planestatus
    ```
    Check on it with `systemctl status planestatus` or `journalctl -u
-   planestatus -f`. Re-run `npm run build` and `sudo systemctl restart
-   planestatus` after pulling any future code changes.
+   planestatus -f`.
+6. **Updating later** — `deploy/update-pi.sh` runs the full update sequence
+   (`git pull`, `npm install`, `npm run build`, `sudo systemctl restart
+   planestatus`) in one go:
+   ```bash
+   ./deploy/update-pi.sh
+   ```
+   Equivalent to running those four commands by hand from the repo root.
 
 This setup is LAN-only by design — nothing here opens a port on your
 router or exposes the Pi to the public internet. Every device that needs
