@@ -222,7 +222,13 @@ function computeRefreshTier(flight: TrackedFlight, baseIntervalMinutes: number, 
 // it) would see its elapsed time land juuust under the threshold on every
 // single check, deferring a full extra cycle each time — silently doubling
 // the effective interval instead of only occasionally losing a few seconds.
-const DUE_CHECK_TOLERANCE_MINUTES = 1;
+//
+// A percentage rather than a flat number of minutes, so this scales safely
+// across every interval, including the 1-minute/5-minute "high-frequency"
+// options — a flat buffer would either be too small to matter at a 4-hour
+// tier or, at the low end, wipe out the threshold entirely (a flat 1-minute
+// tolerance made this always true for a 1-minute tier: 1 - 1 = 0).
+const DUE_CHECK_TOLERANCE_RATIO = 0.1;
 
 /** Whether enough time has passed since this flight's last lookup *attempt*, per its own tiered interval (see `computeRefreshTier`). Used only to throttle the *automatic* refresh tick — manual refreshes always run immediately. Keyed off the last attempt rather than the last success so a repeatedly-failing lookup (e.g. a far-out flight still too early for the free tier) doesn't retry on every single tick. */
 export function isDueForAutoRefresh(
@@ -234,5 +240,6 @@ export function isDueForAutoRefresh(
   if (tier.dormant) return false;
   const lastAttempted = parseIso(flight.lastAttemptedAt);
   if (!lastAttempted) return true;
-  return minutesBetween(lastAttempted, now) >= tier.intervalMinutes - DUE_CHECK_TOLERANCE_MINUTES;
+  const tolerance = tier.intervalMinutes * DUE_CHECK_TOLERANCE_RATIO;
+  return minutesBetween(lastAttempted, now) >= tier.intervalMinutes - tolerance;
 }
