@@ -43,7 +43,13 @@ function AppShell() {
   const [, forceRerender] = useState(0);
   const activeFlightCount = useMemo(() => flights.filter((f) => isActivelyRefreshable(f)).length, [flights]);
 
-  useFlightAwareUsagePolling(providerManager, settings.demoMode, () => forceRerender((t) => t + 1));
+  useFlightAwareUsagePolling(
+    providerManager,
+    settings.demoMode,
+    settings.flightAwareCostLimit,
+    settings.notificationsEnabled,
+    () => forceRerender((t) => t + 1),
+  );
 
   function handleRefreshAll() {
     refreshAll();

@@ -389,12 +389,16 @@ the app.
 - **FlightAware cost limit**: since AeroAPI is billed per request with no
   fixed monthly quota, Settings shows FlightAware's own reported account
   usage (`GET /account/usage`) — total calls and total cost — fetched once
-  when the app starts and again every hour for as long as the tab stays
-  open, plus a manual "Refresh now" button. A user-set dollar limit
+  when the app starts and again every 10 minutes for as long as the tab
+  stays open, plus a manual "Refresh now" button. A user-set dollar limit
   (default $5) is compared against that reported cost; once reached,
   FlightAware is skipped (falling through to the next configured provider)
   until AeroAPI's own figure drops back below the limit or you raise it.
-  Skipped in demo mode, same as every other real API call.
+  Skipped in demo mode, same as every other real API call. If notifications
+  are enabled, a browser notification also fires the first time reported
+  cost crosses 90%, 95%, and 99% of the limit, so hitting it isn't a
+  surprise — each threshold only warns once until usage drops back under
+  90% (limit raised, or AeroAPI's billing period rolls over).
 - **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
   departure only every 4 hours, and flights 12–24h out only every hour,
   regardless of the interval selected above — gates and terminals essentially
