@@ -3,7 +3,7 @@ import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useFlights } from './hooks/useFlights';
 import { useAutoRefresh } from './hooks/useAutoRefresh';
 import { useProviderManager } from './hooks/useProviderManager';
-import { useFlightAwareUsagePolling } from './hooks/useFlightAwareUsagePolling';
+import { useFlightAwareUsagePolling, type FlightAwareUsageWarning } from './hooks/useFlightAwareUsagePolling';
 import { Header } from './components/Header';
 import { AddFlightForm } from './components/AddFlightForm';
 import { RefreshControls } from './components/RefreshControls';
@@ -11,6 +11,7 @@ import { Dashboard } from './components/Dashboard';
 import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { AlertDialog } from './components/AlertDialog';
 import { LegChoiceModal } from './components/LegChoiceModal';
 import { isActivelyRefreshable } from './services/flightService';
 
@@ -41,13 +42,14 @@ function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [, forceRerender] = useState(0);
+  const [usageWarning, setUsageWarning] = useState<FlightAwareUsageWarning | null>(null);
   const activeFlightCount = useMemo(() => flights.filter((f) => isActivelyRefreshable(f)).length, [flights]);
 
   useFlightAwareUsagePolling(
     providerManager,
     settings.demoMode,
     settings.flightAwareCostLimit,
-    settings.notificationsEnabled,
+    setUsageWarning,
     () => forceRerender((t) => t + 1),
   );
 
@@ -131,6 +133,13 @@ function AppShell() {
       />
 
       <LegChoiceModal prompt={legChoicePrompt} onConfirm={resolveLegChoice} onCancel={cancelLegChoice} />
+
+      <AlertDialog
+        open={usageWarning !== null}
+        title={usageWarning?.title ?? ''}
+        message={usageWarning?.message ?? ''}
+        onClose={() => setUsageWarning(null)}
+      />
     </div>
   );
 }
