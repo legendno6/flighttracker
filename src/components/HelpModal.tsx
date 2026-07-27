@@ -114,8 +114,8 @@ const HELP_TABS: HelpTab[] = [
           and every 10 minutes after that, plus a manual "Refresh now" button. Set a dollar cost
           limit (default $5) — once FlightAware's own reported cost reaches it, FlightAware is
           skipped in favor of the next configured provider until that figure drops back below the
-          limit or you raise it. If notifications are enabled, a browser notification also warns
-          the first time reported cost crosses 90%, 95%, and 99% of that limit.
+          limit or you raise it. An in-app warning window also pops up (requiring an OK click to
+          dismiss) the first time reported cost crosses 90%, 95%, and 99% of that limit.
         </p>
       </>
     ),

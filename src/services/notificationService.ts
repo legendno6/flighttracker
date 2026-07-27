@@ -34,17 +34,3 @@ export function notifyFlightChange(flightLabel: string, changes: string[]): void
     notification.close();
   };
 }
-
-/** One fixed `tag` means a later, higher threshold replaces the still-open notification from an earlier one instead of stacking. */
-export function notifyFlightAwareUsageThreshold(thresholdRatio: number, totalCost: number, limitDollars: number): void {
-  if (!isNotificationSupported() || Notification.permission !== 'granted') return;
-
-  const notification = new Notification('FlightAware cost approaching limit', {
-    body: `${Math.round(thresholdRatio * 100)}% of your $${limitDollars.toFixed(2)} limit reached — $${totalCost.toFixed(2)} spent this period.`,
-    tag: 'flightaware-usage-threshold',
-  });
-  notification.onclick = () => {
-    window.focus();
-    notification.close();
-  };
-}

@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { ProviderManager } from '../providers/ProviderManager';
-import { getNotificationPermission, notifyFlightAwareUsageThreshold } from '../services/notificationService';
 
 const POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 // Checked highest-first so a jump across more than one threshold in a single
-// tick (e.g. the limit was just lowered) only fires the one notification for
+// tick (e.g. the limit was just lowered) only fires the one warning for
 // wherever usage actually landed, not one per threshold passed through.
 const WARNING_THRESHOLDS = [0.99, 0.95, 0.9];
+
+export interface FlightAwareUsageWarning {
+  title: string;
+  message: string;
+}
 
 /**
  * Fetches FlightAware's account usage once when the app starts, then every
@@ -17,27 +21,28 @@ const WARNING_THRESHOLDS = [0.99, 0.95, 0.9];
  * arrives — the same pattern already used for the session-request-governor
  * "Restart" button.
  *
- * Also watches the reported cost against `costLimit` and fires a browser
- * notification the first time each of 90%/95%/99% is crossed, so the limit
- * being hit (which silently skips FlightAware in the provider chain) doesn't
- * come as a surprise. `costLimitRef`/`notificationsEnabledRef` are read fresh
- * on every tick via refs rather than being effect dependencies, so changing
- * either setting doesn't tear down and restart the underlying interval.
+ * Also watches the reported cost against `costLimit` and calls
+ * `onThresholdCrossed` the first time each of 90%/95%/99% is crossed, so the
+ * limit being hit (which silently skips FlightAware in the provider chain)
+ * doesn't come as a surprise — App.tsx surfaces this as an in-app modal the
+ * user has to click OK on, rather than an OS notification, since it needs no
+ * browser permission and shouldn't be missable the way a toast can be.
+ * `costLimitRef` is read fresh on every tick via a ref rather than being an
+ * effect dependency, so changing the limit doesn't tear down and restart the
+ * underlying interval.
  */
 export function useFlightAwareUsagePolling(
   manager: ProviderManager,
   demoMode: boolean,
   costLimit: number,
-  notificationsEnabled: boolean,
+  onThresholdCrossed: (warning: FlightAwareUsageWarning) => void,
   onUpdate: () => void,
 ) {
   const costLimitRef = useRef(costLimit);
   costLimitRef.current = costLimit;
-  const notificationsEnabledRef = useRef(notificationsEnabled);
-  notificationsEnabledRef.current = notificationsEnabled;
-  // Highest threshold already notified for the current "over limit" stretch;
+  // Highest threshold already surfaced for the current "over limit" stretch;
   // reset once usage drops back under the lowest threshold (limit raised, or
-  // AeroAPI's own billing period rolled over) so a later climb re-warns.
+  // AeroAPI's own billing period rolled over) so a later climb warns again.
   const notifiedThresholdRef = useRef(0);
 
   useEffect(() => {
@@ -57,8 +62,11 @@ export function useFlightAwareUsagePolling(
 
       if (crossed !== undefined && crossed > notifiedThresholdRef.current) {
         notifiedThresholdRef.current = crossed;
-        if (notificationsEnabledRef.current && getNotificationPermission() === 'granted' && snapshot) {
-          notifyFlightAwareUsageThreshold(crossed, snapshot.totalCost, limit);
+        if (snapshot) {
+          onThresholdCrossed({
+            title: 'FlightAware cost approaching limit',
+            message: `${Math.round(crossed * 100)}% of your $${limit.toFixed(2)} limit reached — $${snapshot.totalCost.toFixed(2)} spent this period.`,
+          });
         }
       } else if (ratio < WARNING_THRESHOLDS[WARNING_THRESHOLDS.length - 1]) {
         notifiedThresholdRef.current = 0;

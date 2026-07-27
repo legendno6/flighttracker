@@ -294,10 +294,11 @@ the app.
   (default $5) is compared against that reported cost; once reached,
   FlightAware is skipped (falling through to the next configured provider)
   until AeroAPI's own figure drops back below the limit or you raise it.
-  Skipped in demo mode, same as every other real API call. If notifications
-  are enabled, a browser notification also fires the first time reported
-  cost crosses 90%, 95%, and 99% of the limit, so hitting it isn't a
-  surprise — each threshold only warns once until usage drops back under
+  Skipped in demo mode, same as every other real API call. An in-app
+  warning window (a modal the user must click OK to dismiss, not an OS
+  notification — no browser permission needed) also pops up the first time
+  reported cost crosses 90%, 95%, and 99% of the limit, so hitting it isn't
+  a surprise — each threshold only warns once until usage drops back under
   90% (limit raised, or AeroAPI's billing period rolls over).
 - **Tiered refresh cadence**: auto-refresh checks flights more than 24h from
   departure only every 4 hours, and flights 12–24h out only every hour,
