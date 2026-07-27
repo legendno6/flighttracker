@@ -214,6 +214,16 @@ function computeRefreshTier(flight: TrackedFlight, baseIntervalMinutes: number, 
   return { intervalMinutes: baseIntervalMinutes, dormant: false };
 }
 
+// The automatic tick fires on its own fixed schedule, independent of the
+// exact moment any given flight's *previous* lookup actually completed (that
+// always lags the tick that triggered it by however long the network call
+// took). Without slack, a flight whose tier interval lines up with the tick
+// cadence (most commonly the base-interval tier, which by definition equals
+// it) would see its elapsed time land juuust under the threshold on every
+// single check, deferring a full extra cycle each time — silently doubling
+// the effective interval instead of only occasionally losing a few seconds.
+const DUE_CHECK_TOLERANCE_MINUTES = 1;
+
 /** Whether enough time has passed since this flight's last lookup *attempt*, per its own tiered interval (see `computeRefreshTier`). Used only to throttle the *automatic* refresh tick — manual refreshes always run immediately. Keyed off the last attempt rather than the last success so a repeatedly-failing lookup (e.g. a far-out flight still too early for the free tier) doesn't retry on every single tick. */
 export function isDueForAutoRefresh(
   flight: TrackedFlight,
@@ -224,5 +234,5 @@ export function isDueForAutoRefresh(
   if (tier.dormant) return false;
   const lastAttempted = parseIso(flight.lastAttemptedAt);
   if (!lastAttempted) return true;
-  return minutesBetween(lastAttempted, now) >= tier.intervalMinutes;
+  return minutesBetween(lastAttempted, now) >= tier.intervalMinutes - DUE_CHECK_TOLERANCE_MINUTES;
 }
