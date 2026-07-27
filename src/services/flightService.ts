@@ -214,15 +214,6 @@ function computeRefreshTier(flight: TrackedFlight, baseIntervalMinutes: number, 
   return { intervalMinutes: baseIntervalMinutes, dormant: false };
 }
 
-// The automatic tick fires on its own fixed schedule, independent of the
-// exact moment any given flight's *previous* lookup actually completed (that
-// always lags the tick that triggered it by however long the network call
-// took). Without slack, a flight whose tier interval lines up with the tick
-// cadence (most commonly the base-interval tier, which by definition equals
-// it) would see its elapsed time land juuust under the threshold on every
-// single check, deferring a full extra cycle each time — silently doubling
-// the effective interval instead of only occasionally losing a few seconds.
-//
 // A percentage rather than a flat number of minutes, so this scales safely
 // across every interval, including the 1-minute/5-minute "high-frequency"
 // options — a flat buffer would either be too small to matter at a 4-hour
@@ -238,6 +229,24 @@ export function isDueForAutoRefresh(
 ): boolean {
   const tier = computeRefreshTier(flight, baseIntervalMinutes, now);
   if (tier.dormant) return false;
+
+  // A flight in the base tier refreshes at exactly the outer tick's own
+  // cadence — so the tick firing at all *is* the "due" signal, and there's
+  // no independent elapsed-time threshold to satisfy. Comparing elapsed time
+  // since `lastAttemptedAt` here (as the slower tiers below still do) breaks
+  // as soon as that timestamp was set off-cycle from the tick's own fixed
+  // schedule — e.g. whenever a flight is added, or manually refreshed,
+  // `lastAttemptedAt` lands at whatever arbitrary moment the user happened to
+  // act, not aligned to the tick. The very next tick then measures under a
+  // full interval elapsed, fails even a tolerance-padded threshold, and
+  // silently skips a whole cycle before the following tick catches up —
+  // confirmed against a real flight that was added at :25:41, entirely
+  // missed the :33 tick (7.3 elapsed minutes needed >= 9), and only
+  // refreshed again at :43. A slower tier's interval is, by construction,
+  // some multiple of the tick cadence rather than equal to it, so an
+  // elapsed-time check there is still meaningful and worth keeping.
+  if (tier.intervalMinutes === baseIntervalMinutes) return true;
+
   const lastAttempted = parseIso(flight.lastAttemptedAt);
   if (!lastAttempted) return true;
   const tolerance = tier.intervalMinutes * DUE_CHECK_TOLERANCE_RATIO;
