@@ -103,7 +103,8 @@ const STATUS_KEYWORD_MAP: Array<[RegExp, FlightStatus]> = [
   [/arriv|land/i, 'Landed'],
   [/delay/i, 'Delayed'],
   [/board/i, 'Boarding'],
-  [/route|air|depart|taxi/i, 'In Flight'],
+  [/taxi/i, 'Taxiing'],
+  [/route|air|depart/i, 'In Flight'],
   [/schedul/i, 'Scheduled'],
 ];
 

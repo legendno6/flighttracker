@@ -125,7 +125,7 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
         )}
       </header>
 
-      {isLoading && (
+      {isLoading && !data && (
         <p className="mt-4 animate-pulse text-sm text-slate-500 dark:text-slate-400">Looking up flight&hellip;</p>
       )}
 
@@ -156,7 +156,7 @@ export function FlightCard({ flight, onRefresh, onRemove, onToggleAutoRefresh, i
         </div>
       )}
 
-      {!isLoading && data && (
+      {data && (
         <div className="mt-4 space-y-4">
           <div className="flex items-center justify-between text-center">
             <RouteEndpoint label="Departure" info={data.departure} displayTimezone={settings.displayTimezone} />
