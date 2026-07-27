@@ -61,11 +61,21 @@ export function resolveDisplayStatus(
   // guard, a live match found while departure is still hours away (a
   // same-day multi-leg flight number, where the callsign is airborne on a
   // *different* leg of the day's rotation) gets wrongly attributed here.
-  const isAirborne = !!depActual || result.status === 'In Flight' || (live != null && isDepartureImminentOrPast(result, now));
+  const isAirborne =
+    !!depActual ||
+    result.status === 'In Flight' ||
+    result.status === 'Taxiing' ||
+    (live != null && isDepartureImminentOrPast(result, now));
 
   if (isAirborne) {
     // Already left the gate — somewhere in the air (or briefly on the ground pre-takeoff).
-    if (live?.onGround) return 'Taxiing';
+    // A provider that already distinguishes taxiing in its own raw status
+    // (FlightAware does; AviationStack's free tier only has one coarse
+    // "active" bucket for the whole airborne+taxiing period) is trusted
+    // here too, not just a live ADS-B on-ground reading — there's no reason
+    // to wait for live-position enrichment to say what the provider already
+    // told us directly.
+    if (live?.onGround || result.status === 'Taxiing') return 'Taxiing';
 
     const minsToArrival = minutesUntil(arrEstimated, now);
     if (minsToArrival !== null && minsToArrival <= DESCENDING_WINDOW_MINUTES && minsToArrival > -OVERDUE_LANDED_MINUTES) {
