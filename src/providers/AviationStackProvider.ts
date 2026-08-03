@@ -222,11 +222,15 @@ export class AviationStackProvider implements FlightProvider {
     }
 
     // Without flight_date, AviationStack can return more than one recent
-    // occurrence of this flight number — prefer entries matching the
-    // requested date if any are present, rather than assuming data[0] is
-    // the right day.
+    // occurrence of this flight number — only trust entries matching the
+    // requested date. Falling back to an unmatched entry (as this used to)
+    // risks silently displaying an already-completed prior occurrence (e.g.
+    // yesterday's landed flight) as if it were today's.
     const matchingDate = body.data.filter((f) => f.flight_date === request.flightDate);
-    const pool = matchingDate.length > 0 ? matchingDate : body.data;
+    if (matchingDate.length === 0) {
+      throw new FlightNotFoundError();
+    }
+    const pool = matchingDate;
 
     // Same-day out-and-back rotations can leave 2+ genuinely distinct legs
     // (different route/time) sharing this flight number — dedupe so

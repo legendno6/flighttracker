@@ -9,6 +9,7 @@ import {
 import type { AirportInfo, FlightLegSummary, FlightLookupResult, FlightStatus } from '../types/flight';
 import { findAirportTimezone } from '../data/airportTimezones';
 import { FlightAwareUsageTracker } from '../services/flightAwareUsageTracker';
+import { localDateInZone } from '../utils/dateTimeUtils';
 
 // Same-origin proxy — see server/flightAwareCore.ts for why this can't call
 // AeroAPI directly from the browser (no CORS headers on their responses).
@@ -87,6 +88,34 @@ function legKeyFor(flight: FlightAwareFlight): string {
   return `${originCode}-${destCode}-${flight.scheduled_out ?? ''}`;
 }
 
+/** Adds (or subtracts) whole days from a yyyy-mm-dd date string, staying in UTC-safe arithmetic throughout. */
+function shiftIsoDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * The calendar date this leg's *origin airport* would call its own
+ * departure date — not the UTC date `scheduled_out` happens to fall on.
+ * Confirmed directly against AeroAPI: a Toronto (EDT, UTC-4) departure at
+ * 9:50 PM local is 01:50 UTC the *next* day, so slicing `scheduled_out`'s
+ * raw UTC digits (the previous approach) reads it as tomorrow, not today —
+ * and worse, that same UTC slice makes *yesterday's* Toronto departure
+ * (21:50 EDT the day before) land inside *today's* UTC calendar day,
+ * silently matching a flight that already landed hours ago instead of the
+ * one that hasn't departed yet. Any airport east of UTC has some evening
+ * departure window where this flips.
+ */
+function flightLocalDate(flight: FlightAwareFlight): string | null {
+  const tz =
+    flight.origin?.timezone ??
+    findAirportTimezone(flight.origin?.code_iata ?? flight.origin?.code ?? null) ??
+    findAirportTimezone(flight.origin?.code_icao ?? null);
+  return localDateInZone(flight.scheduled_out ?? null, tz);
+}
+
 function legSummaryFor(flight: FlightAwareFlight): FlightLegSummary {
   return {
     legKey: legKeyFor(flight),
@@ -163,10 +192,18 @@ export class FlightAwareProvider implements FlightProvider {
       throw new ProviderUnavailableError('Could not resolve a flight identifier to search for.');
     }
 
+    // Padded a day on each side of the requested calendar date: the window
+    // has to be expressed in UTC, but "today" means today at the *origin
+    // airport*, which for any zone east of UTC (including every North
+    // American airport in the evening) can fall on a different UTC date
+    // than the requester's own calendar date. The exact match against
+    // `request.flightDate` happens below, in the origin's own local time
+    // (see flightLocalDate) — this window just has to be wide enough not to
+    // exclude the real flight before that filtering ever runs.
     const params = new URLSearchParams({
       ident,
-      start: `${request.flightDate}T00:00:00Z`,
-      end: `${request.flightDate}T23:59:59Z`,
+      start: `${shiftIsoDate(request.flightDate, -1)}T00:00:00Z`,
+      end: `${shiftIsoDate(request.flightDate, 1)}T23:59:59Z`,
     });
 
     let response: Response;
@@ -204,8 +241,16 @@ export class FlightAwareProvider implements FlightProvider {
       throw new FlightNotFoundError();
     }
 
-    const todaysFlights = body.flights.filter((f) => (f.scheduled_out ?? '').slice(0, 10) === request.flightDate);
-    const pool = todaysFlights.length > 0 ? todaysFlights : body.flights;
+    const todaysFlights = body.flights.filter((f) => flightLocalDate(f) === request.flightDate);
+    if (todaysFlights.length === 0) {
+      // Nothing in the (deliberately wide) window actually falls on the
+      // requested date at the origin's own local time — trusting an
+      // adjacent day's instance here (as a bare fallback to `body.flights`
+      // used to) risks silently showing an already-completed flight as if
+      // it were the one being tracked.
+      throw new FlightNotFoundError();
+    }
+    const pool = todaysFlights;
 
     // AeroAPI can return more than one instance for the same ident on the
     // same date (see pickMostRelevantFlight's doc comment) — dedupe by
