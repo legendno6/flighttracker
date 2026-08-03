@@ -150,6 +150,17 @@ export function reinterpretAsLocalWallClock(iso: string | null, timeZone: string
   }
 }
 
+/** yyyy-mm-dd calendar date of an ISO instant as seen in the given IANA zone (falls back to UTC if the zone is missing/invalid) — 'en-CA' formats as yyyy-mm-dd directly. */
+export function localDateInZone(iso: string | null, timeZone: string | null): string | null {
+  const date = parseIso(iso);
+  if (!date) return null;
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: timeZone ?? 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  }
+}
+
 export function todayIsoDate(): string {
   const now = new Date();
   const y = now.getFullYear();
