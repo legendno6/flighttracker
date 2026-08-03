@@ -50,6 +50,25 @@ export function resolveDisplayStatus(
   const depEstimated = parseIso(departure.estimated) ?? depScheduled;
   const depActual = parseIso(departure.actual);
   const arrEstimated = parseIso(arrival.estimated) ?? parseIso(arrival.scheduled);
+  const minsToArrival = minutesUntil(arrEstimated, now);
+
+  // Well past the estimated arrival with no live position actively
+  // contradicting it (a real landed aircraft usually stops transmitting
+  // ADS-B position, so `live` being absent here is itself a signal, not
+  // just missing data) — checked unconditionally, before the isAirborne
+  // branch below, because a provider fallback (e.g. AviationStack's free
+  // tier once FlightAware's cost limit kicks in) can leave flight_status
+  // stuck on plain "scheduled" for a flight that has actually already
+  // landed. That raw value fails every isAirborne condition (no depActual,
+  // not "In Flight"/"Taxiing", no live), so it used to fall straight through
+  // to the "Delayed" bucket with no overdue-arrival check to catch it —
+  // confirmed as the cause of a flight staying stuck at a non-terminal
+  // status forever after genuinely landing, which kept isActivelyRefreshable
+  // (flightService.ts) treating it as still needing automatic refreshes and
+  // silently burning API calls on an already-completed flight.
+  if (minsToArrival !== null && minsToArrival <= -OVERDUE_LANDED_MINUTES && !live) {
+    return 'Landed';
+  }
 
   // Providers often lag on populating `actual` departure time (especially
   // AviationStack's free tier) and can leave the coarse status field on
@@ -68,31 +87,16 @@ export function resolveDisplayStatus(
     (live != null && isDepartureImminentOrPast(result, now));
 
   if (isAirborne) {
-    const minsToArrival = minutesUntil(arrEstimated, now);
-
     // Already left the gate — somewhere in the air (or briefly on the
     // ground pre-takeoff). A live, currently-reported on-ground reading is
     // trusted immediately regardless of how overdue arrival looks — unlike
     // a raw status field, live position data doesn't get "stuck" the same way.
     if (live?.onGround) return 'Taxiing';
 
-    // Well past the estimated arrival with no live position actively
-    // contradicting it (a real landed aircraft usually stops transmitting
-    // ADS-B position, so `live` being absent here is itself a signal, not
-    // just missing data) — the provider's own status field just hasn't
-    // updated yet, so don't keep showing "In Flight"/"Taxiing" / 0 min
-    // remaining forever. Checked before trusting a raw Taxiing status below
-    // — a coarse status field is exactly the kind of value that can get
-    // stuck, the same risk this guard already exists to catch for a stuck
-    // "In Flight".
-    if (minsToArrival !== null && minsToArrival <= -OVERDUE_LANDED_MINUTES && !live) {
-      return 'Landed';
-    }
-
     // A provider that already distinguishes taxiing in its own raw status
     // (FlightAware does; AviationStack's free tier only has one coarse
     // "active" bucket for the whole airborne+taxiing period) is trusted
-    // here too, once the stuck-status guard above has had its say.
+    // here too, once the overdue-landed guard above has had its say.
     if (result.status === 'Taxiing') return 'Taxiing';
 
     if (minsToArrival !== null && minsToArrival <= DESCENDING_WINDOW_MINUTES && minsToArrival > -OVERDUE_LANDED_MINUTES) {
